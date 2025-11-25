@@ -1,0 +1,24 @@
+# Ignore dependencies and build artifacts
+node_modules
+build
+dist
+coverage
+
+# VCS/editor
+.git
+.gitignore
+*.log
+*.swp
+.DS_Store
+
+# Local data (databases, mqtt, etc.)
+data/
+src/data/postgres/
+
+# Env files
+.env
+.env.*
+config/*.env
+
+# Docker local
+.docker/

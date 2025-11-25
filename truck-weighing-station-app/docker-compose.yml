@@ -1,0 +1,75 @@
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./config/passwd:/mosquitto/config/passwd:ro
+      - ./data/mosquitto:/mosquitto/data
+    restart: unless-stopped
+    networks:
+      - weighing-network
+
+  db:
+    image: postgres:16
+    container_name: weigh-postgres
+    environment:
+      POSTGRES_USER: weighuser
+      POSTGRES_PASSWORD: weighpass
+      POSTGRES_DB: weighing
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - weighing-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weighuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../weighing-backend
+      dockerfile: Dockerfile
+    container_name: weigh-backend
+    env_file:
+      - ./config/backend.env
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    networks:
+      - weighing-network
+    volumes:
+      - ../weighing-backend/src:/app/src
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: weigh-web
+    env_file:
+      - ./config/web.env
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - weighing-network
+
+networks:
+  weighing-network:
+    driver: bridge
+
