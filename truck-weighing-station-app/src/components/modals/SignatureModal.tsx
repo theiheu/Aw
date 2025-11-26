@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { WeighTicket } from '../types';
+import { WeighTicket } from '../../types';
 
 interface SignatureModalProps {
   ticket: WeighTicket;

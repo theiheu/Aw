@@ -1,5 +1,5 @@
 import React from 'react';
-import { WeighTicket, TicketStatus } from '../types';
+import { WeighTicket, TicketStatus } from '../../types';
 import {
   TruckIcon,
   CheckCircleIcon,

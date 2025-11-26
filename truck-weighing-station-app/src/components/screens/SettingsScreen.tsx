@@ -9,7 +9,7 @@ import {
   AlertTriangleIcon,
 } from '../common/icons';
 import { useMqtt, MqttStatus } from '../../hooks/useMqtt';
-import { StationInfo, AppScreen } from '../types';
+import { StationInfo, AppScreen } from '../../types';
 
 interface SettingsScreenProps {
   setActiveScreen: (screen: AppScreen) => void;

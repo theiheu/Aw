@@ -1,5 +1,5 @@
 import React from 'react';
-import { WeighTicket, StationInfo } from '../types';
+import { WeighTicket, StationInfo } from '../../types';
 
 interface PrintableTicketProps {
   ticket: WeighTicket;
@@ -22,10 +22,10 @@ export const PrintableTicket: React.FC<PrintableTicketProps> = ({ ticket, statio
         fontFamily: "'Inter', 'Arial', 'Times New Roman', sans-serif",
       }}
     >
-      {/* 
-        A5 Landscape: 
+      {/*
+        A5 Landscape:
         Width: 794px (Standard web 96dpi)
-        Height: 560px 
+        Height: 560px
         Layout: Flex Column để đẩy footer xuống đáy
       */}
       <div

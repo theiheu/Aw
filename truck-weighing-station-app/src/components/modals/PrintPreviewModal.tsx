@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { WeighTicket, StationInfo } from '../types';
+import { WeighTicket, StationInfo } from '../../types';
 import { PrintableTicket } from '../common/PrintableTicket';
 import { useMqtt } from '../../hooks/useMqtt';
 import {

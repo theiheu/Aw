@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Customer, Vehicle, Product, AppScreen } from '../types';
+import { Customer, Vehicle, Product, AppScreen } from '../../types';
 import {
   PlusIcon,
   EditIcon,

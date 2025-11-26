@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { WeighTicket, StationInfo, TicketStatus, Customer, Product } from '../types';
+import { WeighTicket, StationInfo, TicketStatus, Customer, Product } from '../../types';
 import {
   CheckCircleIcon,
   FilterIcon,
