@@ -22,7 +22,9 @@
     "typeorm": "typeorm",
     "migration:generate": "typeorm migration:generate",
     "migration:run": "typeorm migration:run",
-    "migration:revert": "typeorm migration:revert"
+    "migration:revert": "typeorm migration:revert",
+    "clean": "rimraf dist node_modules coverage .tsbuildinfo",
+    "ci": "npm ci --prefer-offline --no-audit"
   },
   "dependencies": {
     "@nestjs/common": "^10.2.10",

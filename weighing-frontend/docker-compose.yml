@@ -1,0 +1,126 @@
+version: '3.9'
+
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./config/passwd:/mosquitto/config/passwd:ro
+      - ./data/mosquitto:/mosquitto/data
+    restart: unless-stopped
+    networks:
+      - weighing-network
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-t", "$SYS/#", "-C", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  db:
+    image: postgres:16-alpine
+    container_name: weigh-postgres
+    environment:
+      POSTGRES_USER: weighuser
+      POSTGRES_PASSWORD: weighpass
+      POSTGRES_DB: weighing
+      POSTGRES_INITDB_ARGS: "-c shared_buffers=256MB -c max_connections=200"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - weighing-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weighuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  backend:
+    build:
+      context: ../weighing-backend
+      dockerfile: Dockerfile
+      cache_from:
+        - type=registry,ref=weigh-backend:latest
+    image: weigh-backend:latest
+    container_name: weigh-backend
+    env_file:
+      - ./config/backend.env
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    networks:
+      - weighing-network
+    volumes:
+      - ../weighing-backend/src:/app/src
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      cache_from:
+        - type=registry,ref=weigh-web:latest
+    image: weigh-web:latest
+    container_name: weigh-web
+    env_file:
+      - ./config/web.env
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - weighing-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+networks:
+  weighing-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-weighing
+
