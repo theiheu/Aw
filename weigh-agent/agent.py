@@ -37,11 +37,19 @@ except ImportError:
 log_dir = Path('logs')
 log_dir.mkdir(exist_ok=True)
 
+# Use UTF-8 encoding for console output on Windows
+import io
+import sys
+if sys.platform == 'win32':
+    # Force UTF-8 encoding for Windows console
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(log_dir / 'weigh_agent.log'),
+        logging.FileHandler(log_dir / 'weigh_agent.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
