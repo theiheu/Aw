@@ -6,6 +6,7 @@ services:
     container_name: mqtt-broker
     ports:
       - "1883:1883"
+      - "9001:9001"
     volumes:
       - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./config/passwd:/mosquitto/config/passwd:ro
@@ -14,7 +15,7 @@ services:
     networks:
       - weighing-network
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-t", "$SYS/#", "-C", "1"]
+      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-p", "1883", "-u", "weighuser", "-P", "weighpass123", "-t", "$SYS/#", "-C", "1", "-W", "3"]
       interval: 30s
       timeout: 10s
       retries: 3

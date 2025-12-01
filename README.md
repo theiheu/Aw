@@ -1,192 +1,241 @@
-# Truck Weighing Station - Multi-Folder Docker Setup
+# Truck Weighing Station — Full Setup Guide
 
-Hướng dẫn chạy toàn bộ hệ thống bằng Docker cho 3 thư mục:
-- truck-weighing-station-app (Frontend + Orchestrator Compose)
-- weighing-backend (Backend API)
-- weigh-agent (Agent đọc cân & in phiếu – dành cho Windows)
+Tài liệu này hướng dẫn bạn khởi chạy toàn bộ hệ thống gồm:
+- weighing-frontend (Web App + Docker Compose Orchestrator)
+- weighing-backend (REST API)
+- weigh-agent (Ứng dụng PC trung tâm kết nối cân & in phiếu)
+- MQTT Broker (Mosquitto)
+- PostgreSQL (Database)
 
-Cấu trúc thư mục khuyến nghị (3 thư mục nằm cùng cấp):
+Bạn có thể chạy nhanh với Docker Compose hoặc chạy từng phần trong môi trường phát triển.
 
+---
+## 1) Kiến trúc tổng quan
+
+- PC trung tâm (weigh-agent):
+  - Đọc số cân từ cổng COM (serial)
+  - Kết nối tới MQTT (TCP 1883)
+  - Nhận lệnh in từ Web qua MQTT và in ra máy in nội bộ
+  - Có thể (tùy chọn) đẩy dữ liệu cân lên Backend qua HTTP
+- Web App (weighing-frontend):
+  - Kết nối tới MQTT WebSocket (WS 9001) để hiển thị số cân realtime
+  - Tạo phiếu cân, xem trước, gửi lệnh in tới PC trung tâm
+  - Gọi Backend API để lưu trữ dữ liệu (nếu dùng)
+- Backend (weighing-backend):
+  - Cung cấp REST API cho Web App
+  - Kết nối PostgreSQL để lưu dữ liệu
+- MQTT Broker (Mosquitto):
+  - Mở TCP 1883 cho Agent
+  - Mở WebSocket 9001 cho Web App
+
+Topic sử dụng (ví dụ với machineId = weigh1):
+- Agent publish cân: `weigh/weigh1/reading`
+- Agent publish trạng thái: `weigh/weigh1/status` (ONLINE, OFFLINE, PRINT_OK, PRINT_ERROR)
+- Web publish lệnh in: `weigh/weigh1/print` (payload gồm pdfBase64 | pdfUrl + secret)
+
+---
+## 2) Chuẩn bị thư mục
+
+Đặt 3 thư mục ở cùng cấp (khuyến nghị):
+
+```
 /projects
-- truck-weighing-station-app/
-- weighing-backend/
-- weigh-agent/
+  ├─ weighing-frontend/
+  ├─ weighing-backend/
+  └─ weigh-agent/
+```
 
-Lưu ý: docker-compose chính đặt tại truck-weighing-station-app và đã được cấu hình trỏ tới thư mục weighing-backend ở cấp ngang hàng.
+Docker Compose chính được đặt trong `weighing-frontend/` và đã trỏ tới thư mục `../weighing-backend`.
 
---------------------------------------------------------------------------------
-Yêu cầu hệ thống
---------------------------------------------------------------------------------
-- Docker >= 20.10
-- Docker Compose (docker compose v2 hoặc docker-compose v1)
-- Ports trống: 80 (web), 4000 (backend), 5432 (Postgres), 1883 (MQTT)
+---
+## 3) Yêu cầu hệ thống
+
+- Docker >= 20.10 và Docker Compose (v2 recommended)
+- Mở được các cổng:
+  - 80 (Web), 4000 (Backend), 5432 (Postgres), 1883 (MQTT TCP), 9001 (MQTT WS)
+- Nếu chạy Dev Mode (không Docker): Node.js LTS, npm, Python 3 (cho Agent), Tkinter (Linux)
 
 Kiểm tra nhanh:
-- docker --version
-- docker compose version  (hoặc docker-compose --version)
+```
+docker --version
+docker compose version
+```
 
---------------------------------------------------------------------------------
-1) Chuẩn bị cấu hình
---------------------------------------------------------------------------------
-Trong truck-weighing-station-app/config:
-- backend.env: cấu hình Backend (DB, MQTT, JWT, CORS)
-- web.env: cấu hình Frontend (NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WS_URL)
-- mosquitto.conf và passwd: cấu hình MQTT Broker (Eclipse Mosquitto)
+---
+## 4) Cấu hình MQTT WebSocket (BẮT BUỘC cho Web)
 
-Mặc định đã có sẵn các file này. Điều chỉnh nếu cần, ví dụ:
-- config/backend.env → CORS_ORIGIN, JWT_SECRET, DB_PASSWORD, MQTT_PASSWORD
-- config/web.env → NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WS_URL
+File: `weighing-frontend/config/mosquitto.conf`
 
---------------------------------------------------------------------------------
-2) Chạy toàn bộ stack bằng Docker Compose (khuyến nghị)
---------------------------------------------------------------------------------
-Chạy tất cả: Frontend + Backend + PostgreSQL + MQTT
+Mặc định file này mới chỉ mở TCP 1883. Bạn cần mở thêm WebSocket 9001 cho frontend. Thêm 2 dòng sau vào cuối file:
 
-cd truck-weighing-station-app
-# Docker Compose v2
-docker compose up -d
-# hoặc (Compose v1)
-docker-compose up -d
+```
+listener 9001
+protocol websockets
+```
 
-Kiểm tra:
-- docker compose ps  (hoặc docker-compose ps)
-- Truy cập: http://localhost
+Sau đó, mở port 9001 trong Docker Compose:
+- File: `weighing-frontend/docker-compose.yml`
+- Service `mqtt` -> `ports`: thêm dòng `"9001:9001"`
 
-Dịch vụ và cổng:
-- Frontend (Nginx serve React build): http://localhost (port 80)
-- Backend API (Node): http://localhost:4000
-- PostgreSQL: localhost:5432 (user: weighuser, db: weighing)
-- MQTT Broker (Mosquitto): localhost:1883 (user: weighuser)
+Ví dụ:
+```
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./config/passwd:/mosquitto/config/passwd:ro
+      - ./data/mosquitto:/mosquitto/data
+    ...
+```
 
-Xem log:
-- docker compose logs -f            # tất cả
-- docker compose logs -f backend    # từng service
+Lưu ý:
+- Path WebSocket: nhiều broker cần reverse proxy để có path `/mqtt`. Ở frontend, bạn có thể đặt Path là `/mqtt` (EMQX/RabbitMQ) hoặc `/` (Mosquitto). Hãy cấu hình khớp trong trang Cài đặt.
+
+---
+## 5) Khởi chạy toàn bộ stack bằng Docker Compose
+
+Tại thư mục `weighing-frontend/`:
+
+```
+docker compose up -d --build
+```
+
+Dịch vụ & cổng:
+- Web (React build + Nginx): http://localhost
+- Backend (Node): http://localhost:4000
+- PostgreSQL: localhost:5432 (user: weighuser, pass: weighpass, db: weighing)
+- MQTT: TCP 1883, WebSocket 9001
+
+Kiểm tra log:
+```
+docker compose ps
+docker compose logs -f            # tất cả
+docker compose logs -f mqtt       # MQTT
+docker compose logs -f backend    # Backend
+```
 
 Dừng/Reset:
-- docker compose down               # dừng
-- docker compose down -v            # dừng & xoá volumes (reset DB)
+```
+docker compose down               # dừng
+docker compose down -v            # dừng & xoá volumes (reset DB)
+```
 
-Lưu ý về đường dẫn:
-- File docker-compose.yml đã được cập nhật để build backend từ thư mục ../weighing-backend
-- Volumes hot-reload code backend: ../weighing-backend/src:/app/src
+---
+## 6) Cấu hình trong Web App
 
---------------------------------------------------------------------------------
-3) Chạy riêng lẻ từng folder bằng Docker
---------------------------------------------------------------------------------
-A. Frontend (truck-weighing-station-app)
-- Build image và chạy container Nginx serve static build
+Mở http://localhost, vào Cài đặt:
 
-cd truck-weighing-station-app
-# Build (sẽ chạy npm ci & vite build trong stage builder)
-docker build -f Dockerfile.web -t weigh-web:latest .
+- Tab “Kết nối PC Cân”
+  - Giao thức: `ws` (hoặc `wss` nếu web chạy HTTPS)
+  - IP Broker: `localhost` (hoặc IP máy chạy Docker)
+  - Cổng: `9001`
+  - Path: `/mqtt` (nếu broker hỗ trợ) hoặc `/` (Mosquitto)
+  - Mã trạm cân (machineId): `weigh1` (hoặc ID bạn dùng trong Agent)
+- Tab “Máy in”
+  - Print Secret: nhập giống `printSecret` trong `weigh-agent/config.json`
 
-# Run (serve build qua Nginx port 80)
-docker run --rm -p 80:80 --name weigh-web weigh-web:latest
+Sau khi lưu, web sẽ tự kết nối. Bạn sẽ thấy thông báo (toast):
+- Kết nối PC trung tâm thành công / đang kết nối lại
+- ONLINE / OFFLINE khi agent lên/xuống
+- PRINT_OK / PRINT_ERROR sau khi in
 
-Ghi chú:
-- NEXT_PUBLIC_* trong React được “bake” vào lúc build. Nếu đổi API URL, hãy cập nhật config/web.env và build lại image.
+---
+## 7) Chạy Agent (PC Trung tâm)
 
-B. Backend (weighing-backend)
-- Build image và chạy API (cần DB & MQTT đã chạy sẵn hoặc trỏ tới docker network tương ứng)
+- Windows:
+  - Cài Python 3
+  - `pip install pyserial paho-mqtt requests`
+  - Chạy: `python weigh_agent_gui.py`
+- Ubuntu/Debian:
+  - `sudo apt-get install python3-tk`
+  - `pip3 install pyserial paho-mqtt requests`
+  - `python3 weigh_agent_gui.py`
 
+Cấu hình trong GUI (hoặc `weigh-agent/config.json`):
+- `machineId`: trùng với Web (ví dụ `weigh1`)
+- `mqttHost`: IP broker (VD `127.0.0.1` nếu broker cùng máy)
+- `mqttPort`: `1883` (TCP)
+- `printSecret`: trùng khớp với Web
+- COM port, baudrate: phù hợp cân thực tế
+
+Agent sẽ:
+- Publish cân: `weigh/{machineId}/reading`
+- Publish trạng thái: `weigh/{machineId}/status` (ONLINE, OFFLINE, PRINT_OK, PRINT_ERROR)
+- Subscribe lệnh in: `weigh/{machineId}/print` (nhận pdfBase64/pdfUrl + secret)
+- (Tuỳ chọn) Push backend: cấu hình `backendUrl` và `backendEventsEndpoint`
+
+---
+## 8) Kiểm thử nhanh end-to-end
+
+1) Đảm bảo MQTT đã mở TCP 1883 & WS 9001, Web & Backend đã chạy.
+2) Mở Web > Cài đặt > Kết nối PC Cân, nhập đúng broker WS.
+3) Chạy Agent và cấu hình `machineId`, `mqttHost`, `mqttPort`.
+4) Mở phiếu cân > Xem trước > chọn “PC Chính” > “Gửi in”.
+5) Quan sát Agent in phiếu và Web hiện toast PRINT_OK / PRINT_ERROR.
+
+---
+## 9) Chạy Dev Mode (tuỳ chọn)
+
+### 9.1 Web (weighing-frontend)
+```
+cd weighing-frontend
+npm ci
+npm run dev
+# Mặc định: http://localhost:5173
+```
+Bạn vẫn cần MQTT WS → có thể chạy riêng Mosquitto bằng Docker:
+```
+docker run -it --rm \
+  -p 1883:1883 -p 9001:9001 \
+  -v $PWD/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro \
+  -v $PWD/config/passwd:/mosquitto/config/passwd:ro \
+  -v $PWD/data/mosquitto:/mosquitto/data \
+  eclipse-mosquitto:2
+```
+
+### 9.2 Backend (weighing-backend)
+```
 cd weighing-backend
+npm ci
+npm run dev
+# Mặc định: http://localhost:4000
+```
 
-docker build -t weigh-backend:latest .
+### 9.3 Agent (weigh-agent)
+Xem mục 7.
 
-# Chạy đơn lẻ (ví dụ trỏ tới DB/MQTT đang chạy ở host hoặc compose khác)
-# Thay các biến phù hợp môi trường của bạn
-docker run --rm -p 4000:4000 \
-  --env-file ../truck-weighing-station-app/config/backend.env \
-  --name weigh-backend weigh-backend:latest
+---
+## 10) Troubleshooting
 
-Ghi chú:
-- Khi chạy qua compose ở bước (2), bạn không cần run riêng backend.
-- File Dockerfile của backend dùng 2 stage (build + production) và chạy dist/main.
+- Không kết nối được MQTT từ Web:
+  - Web chạy HTTPS → phải dùng `wss://` và broker cần SSL / reverse proxy.
+  - Sai Path WebSocket → thử `/mqtt` hoặc `/` tùy broker.
+  - Chưa mở port 9001 trong docker-compose.
+- Agent báo thiếu Tkinter (Linux): `sudo apt-get install python3-tk`.
+- In trên Linux/macOS lỗi: cài `lp` hoặc `lpr` (CUPS) và thử lại.
+- Lệnh in không chạy: kiểm tra `printSecret` giữa Web và Agent có khớp không.
+- Không nhận được số cân: kiểm tra COM port/baudrate và định dạng dữ liệu cân.
+- machineId không khớp: Web & Agent phải dùng cùng `machineId`.
 
-C. Agent (weigh-agent) – Windows-only
-- Agent sử dụng pywin32 và truy cập COM + máy in Windows; vì vậy:
-  - Chạy native Windows (khuyến nghị) hoặc
-  - Chạy Docker Windows container (yêu cầu Windows 10/11/Server với Windows containers)
-- Không thể chạy container Windows song song với Linux containers trong cùng 1 docker engine; nếu cần, tách môi trường hoặc sử dụng 2 máy/VM riêng.
+---
+## 11) Bảo mật (khuyến nghị)
 
-Chạy native (đơn giản nhất trên máy Windows có COM + máy in):
-- Cài Python 3.11 (Windows)
-- cd weigh-agent
-- python -m venv .venv && .venv\Scripts\activate
-- pip install -r requirements.txt
-- Chỉnh weigh-agent/config.json (COM port, MQTT host, printer_name…)
-- python agent.py
+- MQTT: bật user/password (đã có `config/passwd`) và cấu hình lại frontend/agent.
+- WebSocket (Production): dùng WSS với chứng chỉ hợp lệ, tránh Mixed Content.
+- Print Secret: luôn đặt chuỗi bí mật mạnh cho `printSecret`.
 
-Chạy bằng Docker Windows (tham khảo – chỉ trên Windows containers):
-- Tạo weigh-agent/Dockerfile.windows (ví dụ):
-  FROM mcr.microsoft.com/windows/servercore:ltsc2022
-  SHELL ["cmd", "/S", "/C"]
-  # Cài Python (hoặc dùng image Có sẵn python cho windows)
-  # Cài đặt gói & copy mã nguồn, tương tự linux nhưng phù hợp Windows
-  # pywin32 yêu cầu Windows base image
+---
+## 12) Ghi chú thêm
 
-- Tạo weigh-agent/docker-compose.windows.yml (ví dụ):
-  services:
-    agent:
-      image: weigh-agent:win
-      build:
-        context: .
-        dockerfile: Dockerfile.windows
-      volumes:
-        - ./:C:\\app
-      working_dir: C:\\app
-      command: ["python", "agent.py"]
-      environment:
-        - COM_PORT=COM3
-      # Mapping tài nguyên COM/Printer phụ thuộc host Windows, cần cấu hình thêm
+- Trong `weigh-agent`, đã có Last Will: OFFLINE khi agent disconnect.
+- Agent có thể (tùy chọn) gửi dữ liệu cân về Backend qua HTTP (cấu hình `backendUrl`).
+- Web đã hiển thị toast cho các trạng thái kết nối/print.
 
-Khuyến nghị thực tế: Chạy agent native trên máy cân Windows, kết nối tới MQTT của hệ thống.
+---
+## License
 
---------------------------------------------------------------------------------
-4) Mạng và cấu hình liên thông
---------------------------------------------------------------------------------
-- Compose tạo network: weighing-network
-- Backend kết nối tới DB (service: db) và MQTT (service: mqtt) qua hostname nội bộ docker
-- Frontend gọi Backend qua NEXT_PUBLIC_API_URL (mặc định http://localhost:4000)
-
-Nếu deploy nhiều máy:
-- Sửa config/backend.env: DB_HOST, MQTT_HOST trỏ tới địa chỉ thật
-- Sửa config/web.env: NEXT_PUBLIC_API_URL/NEXT_PUBLIC_WS_URL trỏ tới domain API
-- Rebuild/restart containers
-
---------------------------------------------------------------------------------
-5) Lệnh hữu ích
---------------------------------------------------------------------------------
-- docker compose ps
-- docker compose logs -f backend
-- docker compose restart backend
-- docker compose build
-- docker system prune -f (dọn dẹp docker)
-
-PostgreSQL:
-- docker compose exec db pg_isready -U weighuser
-- docker compose exec db psql -U weighuser -d weighing
-
-MQTT (trong container):
-- docker compose exec mqtt mosquitto_sub -h localhost -p 1883 -u weighuser -P weighpass123 -t "weigh/#" -v
-- docker compose exec mqtt mosquitto_pub -h localhost -p 1883 -u weighuser -P weighpass123 -t "weigh/test" -m "hello"
-
---------------------------------------------------------------------------------
-6) Troubleshooting nhanh
---------------------------------------------------------------------------------
-- Port bị chiếm: đổi cổng trong docker-compose.yml hoặc dừng dịch vụ chiếm cổng
-- Backend không kết nối DB/MQTT: kiểm tra biến DB_HOST/MQTT_HOST trong backend.env
-- Frontend không gọi được API: kiểm tra NEXT_PUBLIC_API_URL và rebuild web
-- MQTT auth fail: đồng bộ user/pass trong mosquitto + backend.env
-- Reset dữ liệu DB: docker compose down -v && docker compose up -d
-
---------------------------------------------------------------------------------
-Tài liệu chi tiết trong repo con
---------------------------------------------------------------------------------
-- truck-weighing-station-app/SETUP_GUIDE.md
-- truck-weighing-station-app/DOCKER_SETUP.md
-- truck-weighing-station-app/QUICK_REFERENCE.md
-- truck-weighing-station-app/START_HERE.md
-
-Bạn cần tôi tạo thêm docker-compose ở root để gom tất cả thành 1 file duy nhất không? Tôi có thể tạo mẫu cross-project, hoặc tạo biến thể compose cho Windows agent riêng.
-
+MIT © Your Team

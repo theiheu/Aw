@@ -14,5 +14,9 @@
   "fakeStartKg": 0.0,
   "fakeEndKg": 60.0,
   "fakeStepKg": 2.0,
-  "fakeIntervalMs": 300
+  "fakeIntervalMs": 300,
+  "backendUrl": "",
+  "backendEventsEndpoint": "/api/weigh-events",
+  "backendApiKey": "",
+  "backendApiHeaderName": "X-API-Key"
 }
