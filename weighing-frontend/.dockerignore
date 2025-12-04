@@ -1,19 +1,21 @@
-# Exclude heavy or host-owned data dirs from build context
 node_modules
-build
-dist
-.tmp
-.cache
+npm-debug.log
+yarn-error.log
 .git
-
-# Docker runtime data/volumes (avoid permission denied during build context)
-data/
-data/**
-
-# Local configs not needed in build context
-config/passwd
-config/passwd.tmp
-
-# OS files
+.gitignore
+README.md
+.env
+.env.local
+.env.*.local
+dist
+build
 .DS_Store
-Thumbs.db
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.next
+out
+coverage
+.nyc_output

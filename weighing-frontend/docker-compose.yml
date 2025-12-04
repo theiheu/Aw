@@ -5,8 +5,8 @@ services:
     image: eclipse-mosquitto:2
     container_name: mqtt-broker
     ports:
-      - "1883:1883"
-      - "9001:9001"
+      - "${MQTT_PORT:-1883}:1883"
+      - "${MQTT_WEBSOCKET_PORT:-9001}:9001"
     volumes:
       - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./config/passwd:/mosquitto/config/passwd:ro
@@ -15,7 +15,7 @@ services:
     networks:
       - weighing-network
     healthcheck:
-      test: ["CMD","mosquitto_sub","-h","localhost","-p","1883","-u","weighuser","-P","weighpass123","-t","$$SYS/#","-C","1","-W","3"]
+      test: ["CMD","mosquitto_sub","-h","localhost","-p","1883","-u","${MQTT_USERNAME}","-P","${MQTT_PASSWORD}","-t","$$SYS/#","-C","1","-W","3"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -33,19 +33,19 @@ services:
     image: postgres:16-alpine
     container_name: weigh-postgres
     environment:
-      POSTGRES_USER: weighuser
-      POSTGRES_PASSWORD: weighpass
-      POSTGRES_DB: weighing
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
       POSTGRES_INITDB_ARGS: "-c shared_buffers=256MB -c max_connections=200"
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     restart: unless-stopped
     networks:
       - weighing-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U weighuser"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -64,25 +64,32 @@ services:
       context: ../weighing-backend
       dockerfile: Dockerfile
       cache_from:
-        - type=registry,ref=weigh-backend:latest
-    image: weigh-backend:latest
+        - type=registry,ref=${BACKEND_IMAGE:-weigh-backend:latest}
+      cache_to:
+        - type=inline
+    image: ${BACKEND_IMAGE:-weigh-backend:latest}
     container_name: weigh-backend
     env_file:
       - ./config/backend.env
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
       db:
         condition: service_healthy
       mqtt:
         condition: service_healthy
     ports:
-      - "4000:4000"
+      - "${BACKEND_PORT:-4000}:4000"
     restart: unless-stopped
     networks:
       - weighing-network
-    volumes:
-      - ../weighing-backend/src:/app/src
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     deploy:
       resources:
         limits:
@@ -97,8 +104,10 @@ services:
       context: .
       dockerfile: Dockerfile.web
       cache_from:
-        - type=registry,ref=weigh-web:latest
-    image: weigh-web:latest
+        - type=registry,ref=${WEB_IMAGE:-weigh-web:latest}
+      cache_to:
+        - type=inline
+    image: ${WEB_IMAGE:-weigh-web:latest}
     container_name: weigh-web
     env_file:
       - ./config/web.env
@@ -106,7 +115,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "80:80"
+      - "${WEB_PORT:-80}:80"
     restart: unless-stopped
     networks:
       - weighing-network
@@ -135,7 +144,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "5173:5173"
+      - "${DEV_PORT:-5173}:5173"
     restart: unless-stopped
     networks:
       - weighing-network
@@ -150,9 +159,58 @@ services:
       start_period: 10s
     command: sh -c "if [ -f package-lock.json ]; then npm ci --prefer-offline --no-audit || npm install --no-audit; else npm install --no-audit; fi; npm run dev -- --host 0.0.0.0 --port 5173"
 
+  weigh-agent:
+    build:
+      context: ../weigh-agent
+      dockerfile: Dockerfile
+      cache_from:
+        - type=registry,ref=${AGENT_IMAGE:-weigh-agent:latest}
+      cache_to:
+        - type=inline
+    image: ${AGENT_IMAGE:-weigh-agent:latest}
+    container_name: weigh-agent
+    environment:
+      - WA_MACHINE_ID=${AGENT_MACHINE_ID:-weigh1}
+      - WA_MQTT_HOST=mqtt
+      - WA_MQTT_PORT=1883
+      - WA_MQTT_USERNAME=${MQTT_USERNAME}
+      - WA_MQTT_PASSWORD=${MQTT_PASSWORD}
+      - WA_LOG_JSON=true
+      - WA_LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - WA_HEALTH_PORT=8787
+      - WA_SERIAL_PORT=${AGENT_SERIAL_PORT:-auto}
+      - WA_FAKE_MODE=${AGENT_FAKE_MODE:-false}
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    networks:
+      - weighing-network
+    volumes:
+      - ../weigh-agent/config.json:/app/config.json
+      - ../weigh-agent/logs:/app/logs
+      - ../weigh-agent/buffer:/app/buffer
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"
+      - "/dev/ttyACM0:/dev/ttyACM0"
+    privileged: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
 networks:
   weighing-network:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: br-weighing
-

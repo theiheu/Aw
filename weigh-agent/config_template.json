@@ -1,0 +1,54 @@
+{
+  "machineId": "weigh1",
+  "serialPort": "auto",
+  "baudrate": 9600,
+  "bytesize": 8,
+  "parity": "N",
+  "stopbits": 1,
+
+  "mqttHost": "127.0.0.1",
+  "mqttPort": 1883,
+  "mqttUsername": "weighuser",
+  "mqttPassword": "weighpass123",
+  "mqttQos": 1,
+  "mqttRetain": false,
+  "mqttKeepalive": 60,
+
+  "zeroThreshold": 10.0,
+  "minPublishIntervalMs": 100,
+  "minWeightChange": 0.0,
+
+  "stabilityWindow": 8,
+  "stabilityThreshold": 0.5,
+  "stabilityMinDurationMs": 400,
+
+  "maWindow": 5,
+
+  "enableKalman": false,
+  "kalmanR": 0.01,
+  "kalmanQ": 0.001,
+
+  "deltaOutlierKg": 2000.0,
+
+  "fakeMode": false,
+  "fakeStartKg": 0.0,
+  "fakeEndKg": 60000.0,
+  "fakeStepKg": 50.0,
+  "fakeIntervalMs": 300,
+  "fakeScaleDivisor": 1000,
+
+  "parseDivisor": 100000,
+  "frameRegex": "([+-]\\d{8})B",
+
+  "bufferMaxItems": 2000,
+  "heartbeatIntervalSec": 30,
+  "staleDataSec": 60,
+  "healthPort": 8787,
+
+  "logLevel": "INFO",
+  "logJson": true,
+  "logFile": "./logs/agent.log",
+  "logMaxBytes": 2000000,
+  "logBackupCount": 3
+}
+

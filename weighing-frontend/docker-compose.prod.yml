@@ -1,0 +1,66 @@
+version: '3.9'
+
+# Production overrides
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  backend:
+    volumes: []  # Remove development volume mounts
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=warn
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  web:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  web-dev:
+    # Disable development service in production
+    profiles:
+      - dev
+
+  weigh-agent:
+    restart: always
+    environment:
+      - WA_LOG_LEVEL=WARN
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  mqtt:
+    restart: always
+
+  db:
+    restart: always
+    environment:
+      POSTGRES_INITDB_ARGS: "-c shared_buffers=512MB -c max_connections=300 -c effective_cache_size=1GB"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+

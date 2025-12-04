@@ -1,0 +1,52 @@
+version: '3.9'
+
+# Development overrides
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+services:
+  backend:
+    volumes:
+      - ../weighing-backend/src:/app/src
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  web:
+    profiles:
+      - dev
+
+  web-dev:
+    profiles: []  # Enable in dev
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  weigh-agent:
+    environment:
+      - WA_LOG_LEVEL=DEBUG
+      - WA_FAKE_MODE=true
+    restart: on-failure
+
+  mqtt:
+    restart: on-failure
+
+  db:
+    restart: on-failure
+    environment:
+      POSTGRES_INITDB_ARGS: "-c shared_buffers=256MB -c max_connections=200"
+
