@@ -36,7 +36,7 @@ const generateTicketHash = (ticket: WeighTicket): string => {
     ticket.tareWeight,
     ticket.netWeight,
     new Date(ticket.weighInTime).toISOString(),
-    ticket.weighOutTime ? new Date(ticket.weighOutTime).toISOString() : 'N/A',
+    ticket.weighOutTime ? new Date(ticket.weighOutTime).toISOString() : '',
   ].join('|');
   let hash = 0;
   for (let i = 0; i < dataString.length; i++) {

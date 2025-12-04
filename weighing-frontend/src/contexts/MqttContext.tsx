@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+// Use default ESM import for mqtt v5 in browser
 // @ts-ignore
-import * as mqttLib from 'mqtt';
+import mqtt from 'mqtt';
 
 export type MqttStatus = 'disconnected' | 'connected' | 'connecting' | 'error';
 
@@ -86,15 +87,7 @@ export const MqttProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let client;
     try {
-      // Robustly resolve the connect function.
-      // @ts-ignore
-      const connectFn = mqttLib.connect || mqttLib.default?.connect || mqttLib.default;
-
-      if (typeof connectFn !== 'function') {
-        throw new Error("Could not find 'connect' function in mqtt library. Check imports.");
-      }
-
-      client = connectFn(brokerUrl, options);
+      client = mqtt.connect(brokerUrl, options);
     } catch (err: any) {
       console.error('[MQTT] Initialization Error:', err);
       setStatus('error');

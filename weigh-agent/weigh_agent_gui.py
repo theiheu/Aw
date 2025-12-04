@@ -52,6 +52,10 @@ DEFAULT_CONFIG = {
     "fakeStepKg": 2.0,
     "fakeIntervalMs": 300,
 
+    # Scale divisors
+    "parseDivisor": 100000,        # scale for real device parsing
+    "fakeScaleDivisor": 1000,      # scale for fake frames (supports up to ~99,999,999 / divisor kg)
+
     # Backend optional (để agent trực tiếp đẩy dữ liệu lên backend nếu cần)
     "backendUrl": "",                   # ví dụ: http://localhost:4000
     "backendEventsEndpoint": "/api/weigh-events",  # endpoint nhận reading
@@ -220,8 +224,13 @@ class WeighAgentCore:
         except ValueError:
             return None
 
-        # scale dddddddd -> kg (dựa theo cân thực tế của mày)
-        value = value / 100000.0
+        # scale dddddddd -> kg (tuỳ divisor). Nếu fakeMode bật, dùng fakeScaleDivisor để hỗ trợ tải lớn.
+        divisor = float(self.cfg.get("parseDivisor", 100000))
+        if bool(self.cfg.get("fakeMode", False)):
+            divisor = float(self.cfg.get("fakeScaleDivisor", divisor))
+        if divisor <= 0:
+            divisor = 100000.0
+        value = value / divisor
 
         zero_th = float(self.cfg.get("zeroThreshold", 10))
         if abs(value) <= zero_th:
@@ -240,7 +249,11 @@ class WeighAgentCore:
         if self.fake_current_kg > end_kg:
             self.fake_current_kg = start_kg
 
-        raw_value = int(self.fake_current_kg * 100000)
+        # Scale fake to fit 8-digit frame using fakeScaleDivisor
+        divisor = int(float(self.cfg.get("fakeScaleDivisor", 1000)))
+        if divisor <= 0:
+            divisor = 1000
+        raw_value = int(self.fake_current_kg * divisor)
         if raw_value > 99999999:
             raw_value = 99999999
 

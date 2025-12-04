@@ -1,0 +1,131 @@
+# ============================
+# OS
+# ============================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ============================
+# Node / Web (React, Vite, Next)
+# ============================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+bun-debug.log*
+
+# Vite / React build
+dist/
+build/
+.vite/
+.next/
+.nuxt/
+.svelte-kit/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+*.log.*
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# ============================
+# Python Agent
+# ============================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.spec
+
+# Virtual env
+venv/
+env/
+.venv/
+
+# PyInstaller build
+build/
+dist/
+*.exe
+*.dll
+
+# ============================
+# Docker
+# ============================
+docker-data/
+docker-volumes/
+*.pid
+
+# ============================
+# Editor / IDE
+# ============================
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+.idea/
+*.iml
+
+# ============================
+# Git
+# ============================
+*.orig
+*.rej
+*.diff
+
+# ============================
+# Temporary Cache
+# ============================
+temp/
+tmp/
+*.tmp
+
+# ============================
+# System Specific for project
+# ============================
+# Bỏ database Mosquitto (không push)
+**/mosquitto/mosquitto.db
+**/mosquitto/*.db
+
+# Bỏ data Postgres, docker mount
+**/data/postgres/*
+**/postgres-data/*
+
+# Bỏ file cân/serial debug
+serial_logs/
+mqtt_logs/
+
+# ============================
+# Python Agent Custom
+# ============================
+agent_logs/
+fake_scale_logs/
+
+# ============================
+# Build Artifacts (Web)
+# ============================
+*.tar.gz
+
+# ============================
+# Other
+# ============================
+*.bak
+*.swp
+*.swo

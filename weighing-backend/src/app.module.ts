@@ -24,6 +24,7 @@ import { Product } from './modules/product/entities/product.entity';
 import { Vehicle } from './modules/vehicle/entities/vehicle.entity';
 import { Printer } from './modules/print/entities/printer.entity';
 import { PrintJob } from './modules/print/entities/print-job.entity';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { PrintJob } from './modules/print/entities/print-job.entity';
     CustomerModule,
     ProductModule,
     VehicleModule,
+    HealthModule,
   ],
   controllers: [],
   providers: [],

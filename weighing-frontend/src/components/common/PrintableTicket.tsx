@@ -9,8 +9,7 @@ interface PrintableTicketProps {
 export const PrintableTicket: React.FC<PrintableTicketProps> = ({ ticket, stationInfo }) => {
   const weighInDate = new Date(ticket.weighInTime);
   const weighOutDate = ticket.weighOutTime ? new Date(ticket.weighOutTime) : null;
-  const displayOperatorName =
-    ticket.operatorName || ticket.signedBy || stationInfo.defaultOperatorName || 'Admin';
+  const displayOperatorName = ticket.operatorName || ticket.signedBy || '';
 
   return (
     <div

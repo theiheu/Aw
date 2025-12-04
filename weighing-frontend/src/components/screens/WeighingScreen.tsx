@@ -641,10 +641,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
         };
         props.updateTicket(updatedTicket);
       } else {
-        if (!plateNumber || !customerName || !productName || !driver || !operatorName) {
-          alert('Vui lòng nhập đủ thông tin phiếu cân.');
-          return;
-        }
+        // Cho phép cân mà không cần điền thông tin đầy đủ. Các trường trống sẽ được điền giá trị mặc định ở tầng xử lý.
         props.processWeighing({
           plateNumber,
           customerName,
@@ -734,13 +731,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
   }, [filteredTickets.length]);
 
   const renderActionButtons = () => {
-    const commonDisabled =
-      !plateNumber ||
-      !customerName ||
-      !productName ||
-      !driver ||
-      !operatorName ||
-      connectionStatus !== 'connected';
+    const commonDisabled = connectionStatus !== 'connected';
 
     const BtnClass =
       'flex flex-col items-center justify-center p-3 rounded-lg shadow-md transition-all duration-200 group border active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100';

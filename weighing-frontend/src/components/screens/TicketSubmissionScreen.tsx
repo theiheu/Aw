@@ -174,8 +174,16 @@ const TicketCard: React.FC<{
               <span className="font-bold">Hàng hóa:</span> {ticket.product.name}
             </div>
             <div>
-              <span className="font-bold">Tài xế:</span> {ticket.driverName}
+              <span className="font-bold">Tài xế:</span> {ticket.driverName || '(không có)'}
             </div>
+            <div>
+              <span className="font-bold">Cân lần 1:</span> {new Date(ticket.weighInTime).toLocaleString('vi-VN')}
+            </div>
+            {ticket.weighOutTime && (
+              <div>
+                <span className="font-bold">Cân lần 2:</span> {new Date(ticket.weighOutTime).toLocaleString('vi-VN')}
+              </div>
+            )}
             {ticket.rejectionReason && (
               <div className="text-red-600 font-semibold">
                 <span className="font-bold">Lý do từ chối:</span> {ticket.rejectionReason}
@@ -321,7 +329,7 @@ export const TicketSubmissionScreen: React.FC<TicketSubmissionScreenProps> = ({
   }, []);
 
   const handleSaveTicket = useCallback(() => {
-    if (!plateNumber || !customerName || !productName || !driverName) {
+    if (!plateNumber || !customerName || !productName) {
       alert('Vui lòng nhập đủ thông tin phiếu cân');
       return;
     }
@@ -481,7 +489,7 @@ export const TicketSubmissionScreen: React.FC<TicketSubmissionScreenProps> = ({
                       icon={<TruckIcon className="w-4 h-4" />}
                     />
                     <InputField
-                      label="Tài xế"
+                      label="Tài xế (tùy chọn)"
                       value={driverName}
                       onChange={setDriverName}
                       placeholder="Tên tài xế"
@@ -564,6 +572,38 @@ export const TicketSubmissionScreen: React.FC<TicketSubmissionScreenProps> = ({
                       </label>
                       <div className="px-3 py-2.5 bg-white border border-industrial-border rounded-md text-industrial-text text-sm font-bold">
                         {Math.abs(grossWeight - tareWeight).toLocaleString('vi-VN')}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Weighing Times Section */}
+                <div className="md:col-span-2 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-2 mb-4 text-purple-700">
+                    <span className="font-bold text-sm">🕐</span>
+                    <h3 className="font-extrabold text-sm uppercase tracking-wider">
+                      Thời gian cân
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-industrial-muted uppercase tracking-wider mb-1.5">
+                        Cân lần 1
+                      </label>
+                      <div className="px-3 py-2.5 bg-white border border-industrial-border rounded-md text-industrial-text text-sm font-bold">
+                        {selectedTicket?.weighInTime
+                          ? new Date(selectedTicket.weighInTime).toLocaleString('vi-VN')
+                          : '--'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-industrial-muted uppercase tracking-wider mb-1.5">
+                        Cân lần 2
+                      </label>
+                      <div className="px-3 py-2.5 bg-white border border-industrial-border rounded-md text-industrial-text text-sm font-bold">
+                        {selectedTicket?.weighOutTime
+                          ? new Date(selectedTicket.weighOutTime).toLocaleString('vi-VN')
+                          : '--'}
                       </div>
                     </div>
                   </div>

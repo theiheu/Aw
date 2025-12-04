@@ -12,12 +12,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: 'ES2022',
-      minify: 'terser',
-      terserOptions: {
-        compress: {
-          drop_console: mode === 'production',
-        },
-      },
+      // Use esbuild minifier (default) to avoid requiring terser
       rollupOptions: {
         output: {
           manualChunks: {

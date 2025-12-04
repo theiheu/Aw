@@ -15,7 +15,7 @@ services:
     networks:
       - weighing-network
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-p", "1883", "-u", "weighuser", "-P", "weighpass123", "-t", "$SYS/#", "-C", "1", "-W", "3"]
+      test: ["CMD","mosquitto_sub","-h","localhost","-p","1883","-u","weighuser","-P","weighpass123","-t","$$SYS/#","-C","1","-W","3"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -110,6 +110,12 @@ services:
     restart: unless-stopped
     networks:
       - weighing-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:
@@ -118,6 +124,31 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
+
+  web-dev:
+    image: node:20-alpine
+    container_name: weigh-web-dev
+    working_dir: /app
+    env_file:
+      - ./config/web.env
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:5173"
+    restart: unless-stopped
+    networks:
+      - weighing-network
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5173/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    command: sh -c "if [ -f package-lock.json ]; then npm ci --prefer-offline --no-audit || npm install --no-audit; else npm install --no-audit; fi; npm run dev -- --host 0.0.0.0 --port 5173"
 
 networks:
   weighing-network:

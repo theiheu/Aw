@@ -187,48 +187,57 @@ const App: React.FC = () => {
       type: 'single' | 'first';
       notes?: string;
     }) => {
-      // 1. Find or create Vehicle
-      let vehicle = vehicles.find(
-        (v) => v.plateNumber.toLowerCase() === data.plateNumber.toLowerCase()
-      );
+      // Allow completely empty form: do not inject placeholders like 'N/A'
+      const plate = (data.plateNumber || '').trim();
+      const customerName = (data.customerName || '').trim();
+      const productName = (data.productName || '').trim();
+      const driverName = (data.driverName || '').trim();
+      const operatorName = (data.operatorName || '').trim();
+
+      // 1. Vehicle: find/create only if plate is provided; else use ephemeral blank vehicle
+      let vehicle: Vehicle | undefined = undefined;
+      if (plate) {
+        vehicle = vehicles.find((v) => v.plateNumber.toLowerCase() === plate.toLowerCase());
       if (!vehicle) {
-        vehicle = addVehicle({ plateNumber: data.plateNumber });
+          vehicle = addVehicle({ plateNumber: plate });
       }
-
-      // --- UPDATE VEHICLE MEMORY ---
-      // Save the current transaction details to the vehicle for auto-fill next time
-      const updatedVehicle: Vehicle = {
-        ...vehicle,
-        lastDriverName: data.driverName,
-        lastCustomerName: data.customerName,
-        lastProductName: data.productName,
-      };
+        // Update vehicle memory only with provided fields
+        const updatedVehicle: Vehicle = { ...vehicle };
+        if (driverName) updatedVehicle.lastDriverName = driverName;
+        if (customerName) updatedVehicle.lastCustomerName = customerName;
+        if (productName) updatedVehicle.lastProductName = productName;
       updateVehicle(updatedVehicle);
-      // Use the updated vehicle object for ticket creation
-      vehicle = updatedVehicle;
-
-      // 2. Find or create Customer
-      let customer = customers.find(
-        (c) => c.name.toLowerCase() === data.customerName.toLowerCase()
-      );
-      if (!customer) {
-        customer = addCustomer({ name: data.customerName });
+        vehicle = updatedVehicle;
+      } else {
+        vehicle = { id: `${ID_PREFIXES.VEHICLE}${Date.now()}`, plateNumber: '' };
       }
 
-      // 3. Find or create Product
-      let product = products.find((p) => p.name.toLowerCase() === data.productName.toLowerCase());
-      if (!product) {
-        product = addProduct({ name: data.productName });
+      // 2. Customer: find/create only if provided; else ephemeral
+      let customer: Customer | undefined = undefined;
+      if (customerName) {
+        customer = customers.find((c) => c.name.toLowerCase() === customerName.toLowerCase());
+        if (!customer) customer = addCustomer({ name: customerName });
+      } else {
+        customer = { id: `${ID_PREFIXES.CUSTOMER}${Date.now()}`, name: '' };
+      }
+
+      // 3. Product: find/create only if provided; else ephemeral
+      let product: Product | undefined = undefined;
+      if (productName) {
+        product = products.find((p) => p.name.toLowerCase() === productName.toLowerCase());
+        if (!product) product = addProduct({ name: productName });
+      } else {
+        product = { id: `${ID_PREFIXES.PRODUCT}${Date.now()}`, name: '' };
       }
 
       // 4. Create Ticket
       const commonTicketData = {
         id: new Date().toISOString(),
-        vehicle,
-        customer,
-        product,
-        driverName: data.driverName,
-        operatorName: data.operatorName, // Save Operator Name
+        vehicle: vehicle!,
+        customer: customer!,
+        product: product!,
+        driverName,
+        operatorName,
         weighInTime: new Date(),
         isSigned: false,
         notes: data.notes,
