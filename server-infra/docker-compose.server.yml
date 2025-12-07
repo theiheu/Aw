@@ -1,0 +1,183 @@
+version: '3.9'
+
+# Central Server Stack (Web + Backend + DB + MQTT + PDF + Backups)
+# Usage: docker compose -f docker-compose.server.yml up -d
+# Environment: Load from server-infra/.env
+
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: mqtt-broker
+    env_file:
+      - .env
+    ports:
+      - "${MQTT_PORT:-1883}:1883"              # TCP for agents over LAN
+      - "${MQTT_WEBSOCKET_PORT:-9001}:9001"    # WebSocket for browsers/phones
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./config/passwd:/mosquitto/config/passwd:ro
+      - ./config/acl:/mosquitto/config/acl:ro
+      - mqtt_data:/mosquitto/data
+    restart: unless-stopped
+    networks:
+      - internal_net
+      - public_net
+    healthcheck:
+      test: ["CMD","mosquitto_sub","-h","localhost","-p","1883","-u","${MQTT_USERNAME:-weighuser}","-P","${MQTT_PASSWORD:-weighpass123}","-t","$$SYS/#","-C","1","-W","3"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  db:
+    image: postgres:16-alpine
+    container_name: weigh-postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_INITDB_ARGS: "-c shared_buffers=256MB -c max_connections=200"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - internal_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -h localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: gotenberg
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - internal_net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  backend:
+    image: ${BACKEND_IMAGE:-weigh-backend:latest}
+    container_name: weigh-backend
+    build:
+      context: ../web-backend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - GOTENBERG_URL=${GOTENBERG_URL:-http://gotenberg:3000}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-http://localhost}
+      - DB_SYNCHRONIZE=${DB_SYNCHRONIZE:-true}
+      - MQTT_HOST=mqtt
+      - MQTT_PORT=1883
+      - MQTT_USERNAME=${MQTT_BACKEND_USER:-backend}
+      - MQTT_PASSWORD=${MQTT_BACKEND_PASSWORD:-backend_secure_pass}
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+    # ports:
+    #   - "${BACKEND_PORT:-4000}:4000"  # Not exposed (internal only)
+    restart: unless-stopped
+    networks:
+      - internal_net
+      - public_net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  web:
+    image: ${WEB_IMAGE:-weigh-web:latest}
+    container_name: weigh-web
+    build:
+      context: ../web-frontend
+      dockerfile: Dockerfile.web
+    env_file:
+      - .env
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-80}:80"
+    restart: unless-stopped
+    networks:
+      - public_net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  pg-backups:
+    image: prodrigestivill/postgres-backup-local:latest
+    container_name: pg-backups
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - internal_net
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - SCHEDULE=${PG_BACKUP_SCHEDULE:-0 3 * * *}
+      - BACKUP_DIR=/backups
+      - POSTGRES_EXTRA_OPTS=-Z6 --schema=public --blobs
+      - TZ=${TZ:-Asia/Ho_Chi_Minh}
+    volumes:
+      - backups_data:/backups
+
+  backup-cleanup:
+    image: alpine:3.20
+    container_name: backup-cleanup
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh","-c","crond -f -l 8"]
+    volumes:
+      - backups_data:/backups
+      - ./config/cleanup/crontab:/etc/crontabs/root:ro
+    restart: unless-stopped
+    networks:
+      - internal_net
+    depends_on:
+      pg-backups:
+        condition: service_started
+
+volumes:
+  db_data:
+    driver: local
+  mqtt_data:
+    driver: local
+  backups_data:
+    driver: local
+
+networks:
+  public_net:
+    driver: bridge
+  internal_net:
+    driver: bridge
+    internal: true
+

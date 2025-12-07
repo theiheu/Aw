@@ -1,0 +1,4 @@
+# Run cleanup at 04:15 daily, delete backup files older than 30 days
+# Format: min hour day month weekday user(optional) command
+15 4 * * * find /backups -type f -mtime +30 -print -delete
+

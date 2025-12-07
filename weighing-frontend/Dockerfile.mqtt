@@ -1,3 +1,0 @@
-FROM eclipse-mosquitto:2
-RUN echo -e "weighpass123\nweighpass123" | mosquitto_passwd -c /mosquitto/config/passwd weighuser
-

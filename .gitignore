@@ -107,10 +107,31 @@ tmp/
 # Bỏ data Postgres, docker mount
 **/data/postgres/*
 **/postgres-data/*
+**/data/mosquitto/*
+**/data/backups/*
 
 # Bỏ file cân/serial debug
 serial_logs/
 mqtt_logs/
+
+# Infrastructure secrets
+server-infra/.env
+server-infra/config/passwd
+server-infra/config/passwd.tmp
+server-infra/data/
+server-infra/backups/
+
+# Agent secrets
+agent-windows-main/.env
+agent-windows-main/logs/
+agent-windows-main/*.db
+
+# Backend secrets
+web-backend/.env
+web-backend/logs/
+
+# Frontend secrets
+web-frontend/.env
 
 # ============================
 # Python Agent Custom

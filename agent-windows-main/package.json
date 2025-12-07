@@ -1,0 +1,35 @@
+{
+  "name": "win-main-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Windows Main Agent: combined Scale (Serial) + Print (PDF) with single MQTT client",
+  "main": "src/index.js",
+  "bin": {
+    "win-main-agent": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "service:install": "node src/service.js install",
+    "service:uninstall": "node src/service.js uninstall",
+    "build:exe": "pkg -t node18-win-x64 --out-dir dist ."
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "mqtt": "^5.7.0",
+    "node-windows": "^1.0.0-beta.5",
+    "pdf-to-printer": "^7.0.0",
+    "serialport": "^12.0.0",
+    "@serialport/parser-readline": "^12.0.0",
+    "uuid": "^9.0.1",
+    "node-fetch": "^3.3.2",
+    "winston": "^3.14.2",
+    "better-sqlite3": "^9.6.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
