@@ -168,6 +168,60 @@ Agent sẽ:
 - Subscribe lệnh in: `weigh/{machineId}/print` (nhận pdfBase64/pdfUrl + secret)
 - (Tuỳ chọn) Push backend: cấu hình `backendUrl` và `backendEventsEndpoint`
 
+
+### 7.1 GUI (khuyến nghị cho người dùng)
+- Chạy: `python3 weigh_agent_gui.py`
+- Các trường quan trọng:
+  - Machine ID: trùng với Web
+  - MQTT Host/Port: broker TCP 1883
+  - Print Secret: trùng Web
+  - Serial Port/Baud/Regex: khi dùng cân thật
+  - Simulate Scale: bật để mô phỏng số cân
+- Test in nhanh: nút “Test Print PDF” chọn một file PDF để gửi tới máy in mặc định.
+
+### 7.2 CLI (không cần GUI)
+- Chạy: `python3 weigh_agent_cli.py [--simulate] [--fake-mode=sine|random|saw|step|manual] [--fake-min ... --fake-max ... --fake-hz ... --fake-noise ... --fake-step ... --manual ...]`
+- Ví dụ mô phỏng sine:
+  - `python3 weigh_agent_cli.py --simulate --fake-mode sine --fake-hz 0.2`
+- Khi chạy CLI, có thể nhập lệnh tương tác:
+  - `set 15000` đặt cân thủ công (manual mode)
+  - `+ 100` tăng 100, `- 50` giảm 50
+  - `mode step` chuyển mode mô phỏng
+  - `quit` thoát
+
+### 7.3 Fake Mode (mô phỏng số cân)
+- Bật “Simulate Scale” để thay thế đọc COM bằng mô phỏng
+- Các mode:
+  - sine: dao động hình sin trong khoảng fakeMin–fakeMax, có nhiễu fakeNoise
+  - random: số ngẫu nhiên trong khoảng fakeMin–fakeMax
+  - saw: dạng răng cưa tăng dần theo chu kỳ
+  - step: nhảy bậc với fakeStep
+  - manual: đặt số cân thủ công bằng ô “Manual Weight” (GUI) hoặc lệnh `set` (CLI)
+- Tham số trong config.json: fakeMode, fakeMin, fakeMax, fakeHz, fakeNoise, fakeStep, fakeManualWeight
+
+### 7.4 Đẩy dữ liệu lên Backend (tuỳ chọn)
+- Cấu hình trong weigh-agent/config.json:
+  - backendUrl (vd: "http://localhost:4000")
+  - backendEventsEndpoint (vd: "/api/events")
+  - backendEnabled: true/false (mặc định false)
+  - backendMinIntervalMs: tối thiểu thời gian giữa 2 lần gửi reading
+  - backendDeltaThreshold: chỉ gửi nếu thay đổi > ngưỡng này (để giảm spam)
+- Agent sẽ gửi các sự kiện dạng JSON tới `${backendUrl}${backendEventsEndpoint}`:
+  - { type: "reading", weight, machineId, timestamp }
+  - { type: "status", status: ONLINE|OFFLINE|PRINT_OK|PRINT_ERROR, machineId, timestamp }
+  - { type: "print", result: OK|ERROR, machineId, timestamp }
+- Có retry với backoff nếu lỗi; hàng đợi nội bộ giới hạn 1000 sự kiện.
+
+### 7.5 Đóng gói cài đặt (PyInstaller)
+- Cài công cụ build: `pip install -r dev-requirements.txt`
+- Build GUI app (không console):
+  - `pyinstaller -y pyinstaller_gui.spec`
+  - File chạy nằm trong `dist/weigh-agent-gui/`
+- Ghi chú hệ điều hành:
+  - Windows: nên cài PDF reader (SumatraPDF/Adobe) để in PDF bằng ShellExecute.
+  - Linux: cần CUPS (lp/lpr). Đã cài qua `cups-bsd`.
+- Chạy kèm `config.json` cùng thư mục exe để cấu hình nhanh.
+
 ---
 ## 8) Kiểm thử nhanh end-to-end
 

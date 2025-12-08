@@ -14,6 +14,7 @@ import { MqttModule } from './modules/mqtt/mqtt.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { ProductModule } from './modules/product/product.module';
 import { VehicleModule } from './modules/vehicle/vehicle.module';
+import { EventsModule } from './modules/events/events.module';
 
 import { User } from './modules/auth/entities/user.entity';
 import { Station } from './modules/station/entities/station.entity';
@@ -69,6 +70,7 @@ import { HealthModule } from './health/health.module';
     ProductModule,
     VehicleModule,
     HealthModule,
+    EventsModule,
   ],
   controllers: [],
   providers: [],
