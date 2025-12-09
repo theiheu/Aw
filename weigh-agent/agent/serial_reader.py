@@ -21,7 +21,7 @@ class ScaleReader:
         port: str,
         baudrate: int = 9600,
         encoding: str = "ascii",
-        regex: str = r"(?P<weight>-?\d+(?:\.\d+)?)",
+        regex: str = r"(?P<weight>[+-]?\d+(?:\.\d+)?)",
         decimals: int = 0,
         simulate: bool = False,
         interval_ms: int = 300,
@@ -171,19 +171,54 @@ class ScaleReader:
         if self._ser is None:
             return
 
-        buff = b""
+        buff = bytearray()
         while not self._stop.is_set():
             try:
                 chunk = self._ser.read(self._ser.in_waiting or 1)
                 if not chunk:
                     continue
                 buff += chunk
-                if b"\n" in buff or b"\r" in buff:
+
+                # Bound buffer growth
+                if len(buff) > 2048:
+                    buff = buff[-1024:]
+
+                # Prefer STX/ETX framing if present (0x02 .. 0x03)
+                processed = False
+                while True:
+                    stx = buff.find(b"\x02")
+                    if stx == -1:
+                        break
+                    etx = buff.find(b"\x03", stx + 1)
+                    if etx == -1:
+                        # Keep from STX onward, discard leading noise
+                        if stx > 0:
+                            del buff[:stx]
+                        break
+                    frame = bytes(buff[stx + 1 : etx])
+                    # Remove processed part
+                    del buff[: etx + 1]
+                    text = frame.decode(self.encoding, errors="ignore")
+                    m = self.pattern.search(text)
+                    if m:
+                        try:
+                            w = float(m.group("weight"))
+                            self._emit(w)
+                        except Exception:
+                            pass
+                    processed = True
+                if processed:
+                    continue
+
+                # Fallback: newline-delimited lines
+                nl = max(buff.find(b"\n"), buff.find(b"\r"))
+                if nl != -1:
+                    line = bytes(buff[:nl])
+                    del buff[: nl + 1]
                     try:
-                        text = buff.decode(self.encoding, errors="ignore")
+                        text = line.decode(self.encoding, errors="ignore")
                     except Exception:
                         text = ""
-                    buff = b""
                     m = self.pattern.search(text)
                     if m:
                         try:

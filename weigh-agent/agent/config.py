@@ -18,7 +18,7 @@ class AgentConfig:
     serialPort: str = "COM3"
     baudRate: int = 9600
     serialEncoding: str = "ascii"
-    serialRegex: str = r"(?P<weight>-?\d+(?:\.\d+)?)"
+    serialRegex: str = r"(?P<weight>[+-]?\d+(?:\.\d+)?)"
     decimals: int = 0
     simulateScale: bool = True
     # Fake scale parameters
