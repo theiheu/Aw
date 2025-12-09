@@ -2,6 +2,7 @@ import re
 import threading
 import time
 import random
+import logging
 from typing import Callable, Optional
 
 try:
@@ -10,6 +11,8 @@ try:
 except Exception:  # pragma: no cover
     serial = None
     list_ports = None
+
+log = logging.getLogger(__name__)
 
 
 class ScaleReader:
@@ -97,28 +100,29 @@ class ScaleReader:
 
     def _run(self) -> None:
         if self.simulate:
+            log.info("ScaleReader running in SIMULATE mode (%s)", self.fake_mode)
             self._run_sim()
             return
+        log.info("ScaleReader running in SERIAL mode on port %s @ %d", self.port, self.baudrate)
         self._run_serial()
 
     def _run_sim(self) -> None:
         t0 = time.time()
         value = self.fake_min
-        direction = 1.0
         period = 1.0 / self.fake_hz if self.fake_hz > 0 else 5.0
         while not self._stop.is_set():
             now = time.time()
             t = now - t0
-            w = self._fake_value(t, period, value, direction)
+            w = self._fake_value(t, period, value)
             self._emit(w)
-            # For step mode, update value and direction across iterations
+            # For step mode, update value across iterations
             if self.fake_mode == "step":
                 value += self.fake_step
                 if value >= self.fake_max:
                     value = self.fake_min
             time.sleep(self.interval_ms / 1000.0)
 
-    def _fake_value(self, t: float, period: float, step_state: float, direction: float) -> float:
+    def _fake_value(self, t: float, period: float, step_state: float) -> float:
         fmin, fmax = self.fake_min, self.fake_max
         noise = random.uniform(-self.fake_noise, self.fake_noise) if self.fake_noise > 0 else 0.0
         if self.fake_mode == "random":
@@ -145,16 +149,28 @@ class ScaleReader:
         return base + noise
 
     def _run_serial(self) -> None:
+        # Do NOT fall back to simulation when simulate=False.
+        # Instead, keep trying to open the serial port and log errors.
         if serial is None:
-            # pyserial not available
-            self._run_sim()
+            log.error("pyserial is not available. Install pyserial to read real scale.")
+            # Wait until stop
+            while not self._stop.is_set():
+                time.sleep(1.0)
             return
-        try:
-            self._ser = serial.Serial(self.port, self.baudrate, timeout=1)
-        except Exception:
-            # Fall back to simulation if open fails
-            self._run_sim()
+
+        # Attempt to open the port with retry
+        while not self._stop.is_set():
+            try:
+                self._ser = serial.Serial(self.port, self.baudrate, timeout=1)
+                log.info("Opened serial port %s @ %d", self.port, self.baudrate)
+                break
+            except Exception as e:
+                log.error("Failed to open serial port %s: %s", self.port, e)
+                time.sleep(2.0)
+
+        if self._ser is None:
             return
+
         buff = b""
         while not self._stop.is_set():
             try:
@@ -175,7 +191,8 @@ class ScaleReader:
                             self._emit(w)
                         except Exception:
                             pass
-            except Exception:
+            except Exception as e:
+                log.debug("Serial read error: %s", e)
                 time.sleep(0.2)
 
 

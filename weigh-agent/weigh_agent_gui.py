@@ -33,6 +33,10 @@ class AgentGUI:
         self.printers: list[str] = []
         self.var_printer = tk.StringVar(value=getattr(self.cfg, "printerName", ""))
 
+        # Optimization variables
+        self.var_reading_json = tk.BooleanVar(value=getattr(self.cfg, "readingJsonEnabled", True))
+        self.var_retain = tk.BooleanVar(value=getattr(self.cfg, "retainLastReading", False))
+
         self._build_ui()
         self._refresh_serial_ports()
         self._refresh_printers()
@@ -150,9 +154,51 @@ class AgentGUI:
         self.btn_refresh_printers = ttk.Button(frm, text="Refresh Printers", command=self._refresh_printers)
         self.btn_refresh_printers.grid(row=22, column=0, columnspan=2, sticky="e")
 
+        ttk.Separator(frm).grid(row=23, column=0, columnspan=2, sticky="ew", pady=6)
+
+        # Optimization/Filtering
+        opt = ttk.LabelFrame(frm, text="Optimization & Filtering")
+        opt.grid(row=24, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+
+        ttk.Label(opt, text="Min Delta (kg)").grid(row=0, column=0, sticky="w")
+        self.e_min_delta = ttk.Entry(opt)
+        self.e_min_delta.insert(0, str(getattr(self.cfg, "filterMinDelta", 5.0)))
+        self.e_min_delta.grid(row=0, column=1, sticky="ew")
+
+        ttk.Label(opt, text="Throttle (ms)").grid(row=1, column=0, sticky="w")
+        self.e_throttle = ttk.Entry(opt)
+        self.e_throttle.insert(0, str(getattr(self.cfg, "filterThrottleMs", 300)))
+        self.e_throttle.grid(row=1, column=1, sticky="ew")
+
+        ttk.Label(opt, text="Median Window").grid(row=2, column=0, sticky="w")
+        self.e_median = ttk.Entry(opt)
+        self.e_median.insert(0, str(getattr(self.cfg, "filterMedianWindow", 5)))
+        self.e_median.grid(row=2, column=1, sticky="ew")
+
+        ttk.Label(opt, text="Scale Factor").grid(row=3, column=0, sticky="w")
+        self.e_scale_factor = ttk.Entry(opt)
+        self.e_scale_factor.insert(0, str(getattr(self.cfg, "scaleFactor", 1.0)))
+        self.e_scale_factor.grid(row=3, column=1, sticky="ew")
+
+        ttk.Label(opt, text="Scale Offset").grid(row=4, column=0, sticky="w")
+        self.e_scale_offset = ttk.Entry(opt)
+        self.e_scale_offset.insert(0, str(getattr(self.cfg, "scaleOffset", 0.0)))
+        self.e_scale_offset.grid(row=4, column=1, sticky="ew")
+
+        self.chk_json = ttk.Checkbutton(opt, text="Publish reading_json", variable=self.var_reading_json)
+        self.chk_json.grid(row=5, column=0, columnspan=2, sticky="w")
+
+        self.chk_retain = ttk.Checkbutton(opt, text="Retain last reading", variable=self.var_retain)
+        self.chk_retain.grid(row=6, column=0, columnspan=2, sticky="w")
+
+        ttk.Label(opt, text="Status Heartbeat (sec)").grid(row=7, column=0, sticky="w")
+        self.e_hb_sec = ttk.Entry(opt)
+        self.e_hb_sec.insert(0, str(getattr(self.cfg, "statusHeartbeatSec", 30)))
+        self.e_hb_sec.grid(row=7, column=1, sticky="ew")
+
         # Actions
         btn_frame = ttk.Frame(frm)
-        btn_frame.grid(row=23, column=0, columnspan=2, pady=8, sticky="ew")
+        btn_frame.grid(row=25, column=0, columnspan=2, pady=8, sticky="ew")
         ttk.Button(btn_frame, text="Save Config", command=self.on_save).pack(side=tk.LEFT)
         ttk.Button(btn_frame, text="Start", command=self.on_start).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="Stop", command=self.on_stop).pack(side=tk.LEFT)
@@ -160,7 +206,7 @@ class AgentGUI:
 
         # Status
         stat = ttk.Frame(frm)
-        stat.grid(row=24, column=0, columnspan=2, sticky="ew")
+        stat.grid(row=26, column=0, columnspan=2, sticky="ew")
         ttk.Label(stat, text="Weight:").pack(side=tk.LEFT)
         ttk.Label(stat, textvariable=self.latest_weight_var, width=12).pack(side=tk.LEFT)
         ttk.Label(stat, text="Status:").pack(side=tk.LEFT, padx=(10, 0))
@@ -297,6 +343,18 @@ class AgentGUI:
             pass
         self.cfg.printSecret = self.e_secret.get()
         self.cfg.printerName = self.var_printer.get().strip()
+        # Optimization
+        try:
+            self.cfg.filterMinDelta = float(self.e_min_delta.get().strip())
+            self.cfg.filterThrottleMs = int(self.e_throttle.get().strip())
+            self.cfg.filterMedianWindow = int(self.e_median.get().strip())
+            self.cfg.scaleFactor = float(self.e_scale_factor.get().strip())
+            self.cfg.scaleOffset = float(self.e_scale_offset.get().strip())
+            self.cfg.statusHeartbeatSec = int(self.e_hb_sec.get().strip())
+        except Exception:
+            pass
+        self.cfg.readingJsonEnabled = bool(self.var_reading_json.get())
+        self.cfg.retainLastReading = bool(self.var_retain.get())
 
     def _update_loop(self) -> None:
         if self.agent and self.running:

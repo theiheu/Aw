@@ -38,6 +38,15 @@ class AgentConfig:
     publishIntervalMs: int = 300
     logLevel: str = "INFO"
     printerName: str = ""
+    # Optimization / filtering
+    filterMinDelta: float = 5.0
+    filterThrottleMs: int = 300
+    filterMedianWindow: int = 5
+    scaleFactor: float = 1.0
+    scaleOffset: float = 0.0
+    readingJsonEnabled: bool = True
+    statusHeartbeatSec: int = 30
+    retainLastReading: bool = False
 
     @staticmethod
     def load(path: Optional[Path] = None) -> "AgentConfig":

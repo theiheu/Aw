@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 class MqttTopics:
     base: str
     reading: str
+    reading_json: str
     status: str
     print: str
 
@@ -30,6 +31,7 @@ class MqttTopics:
         return MqttTopics(
             base=base,
             reading=f"{base}/reading",
+            reading_json=f"{base}/reading_json",
             status=f"{base}/status",
             print=f"{base}/print",
         )
@@ -79,10 +81,17 @@ class MqttClient:
     def publish_status(self, status: str) -> None:
         self._publish(self.topics.status, status, retain=False, qos=1)
 
-    def publish_reading(self, value: float) -> None:
+    def publish_reading(self, value: float, retain: bool = False) -> None:
         # Publish as plain text number so frontend can parse easily
         payload = ("%f" % value).rstrip("0").rstrip(".")
-        self._publish(self.topics.reading, payload, retain=False, qos=0)
+        self._publish(self.topics.reading, payload, retain=retain, qos=0)
+
+    def publish_reading_json(self, obj: dict, retain: bool = False) -> None:
+        try:
+            payload = json.dumps(obj, separators=(",", ":"))
+        except Exception:
+            payload = "{}"
+        self._publish(self.topics.reading_json, payload, retain=retain, qos=0)
 
     def _publish(self, topic: str, payload: str, retain: bool = False, qos: int = 0) -> None:
         try:
