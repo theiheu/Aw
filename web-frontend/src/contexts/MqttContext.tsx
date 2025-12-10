@@ -98,6 +98,7 @@ export const MqttProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clientRef.current = client;
 
     const readingTopic = `weigh/${machineId}/reading`;
+    const readingJsonTopic = `weigh/${machineId}/reading_json`;
     const statusTopic = `weigh/${machineId}/status`;
 
     client.on('connect', () => {
@@ -106,9 +107,9 @@ export const MqttProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       toast('success', 'Đã kết nối PC trung tâm', `${brokerUrl}${normalizedPath}`);
 
-      client.subscribe([readingTopic, statusTopic], (err: any) => {
+      client.subscribe([readingTopic, readingJsonTopic, statusTopic], (err: any) => {
         if (err) console.error('[MQTT] Subscribe error:', err);
-        else console.log(`[MQTT] Subscribed to ${readingTopic}`);
+        else console.log(`[MQTT] Subscribed to ${readingTopic}, ${readingJsonTopic}, ${statusTopic}`);
       });
     });
 
@@ -118,44 +119,61 @@ export const MqttProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast('info', 'Đang kết nối lại PC trung tâm...');
     });
 
+    // Remove previous message listeners to avoid duplicate handlers
+    (client as any).removeAllListeners?.('message');
+
     client.on('message', (topic: string, message: any) => {
+      // Robust message decoding for Browser (Uint8Array/Buffer)
+      let text = '';
       try {
-        // Robust message decoding for Browser (Uint8Array/Buffer)
-        let payloadStr = '';
-        if (typeof message === 'string') {
-          payloadStr = message;
-        } else if (
+        if (typeof message === 'string') text = message;
+        else if (
           message instanceof Uint8Array ||
           message instanceof ArrayBuffer ||
-          (message.buffer && message.buffer instanceof ArrayBuffer)
+          (message && message.buffer && message.buffer instanceof ArrayBuffer)
         ) {
-          // Use TextDecoder for standard browser binary handling
-          payloadStr = new TextDecoder('utf-8').decode(message);
+          text = new TextDecoder('utf-8').decode(message);
         } else {
-          // Fallback for Buffer polyfills
-          payloadStr = message.toString();
-        }
-
-        const payload = JSON.parse(payloadStr);
-
-        if (topic === readingTopic) {
-          if (typeof payload.weight === 'number') {
-            setWeight(payload.weight);
-          }
-        } else if (topic === statusTopic) {
-          const s = (payload && payload.status) || '';
-          if (s === 'PRINT_OK') {
-            toast('success', 'In phiếu thành công', payload.ticketId ? `Phiếu: ${payload.ticketId}` : undefined);
-          } else if (s === 'PRINT_ERROR') {
-            toast('error', 'In phiếu thất bại', payload.error || payload.ticketId || undefined);
-          } else if (s === 'ONLINE') {
-            toast('success', 'PC trung tâm ONLINE');
-          } else if (s === 'OFFLINE') {
-            toast('warning', 'PC trung tâm OFFLINE');
-          }
+          text = message?.toString?.() ?? '';
         }
       } catch (e) {
-        console.error('[MQTT] Message parse error:', e);
+        console.warn('[MQTT] Decode error:', e);
+        return;
+      }
+
+      try {
+        // Route by topic: parse only what we need
+        if (topic === readingTopic) {
+          const v = Number(text);
+          if (!Number.isNaN(v)) setWeight(v);
+          else console.warn('[MQTT] invalid numeric reading:', text);
+          return;
+        }
+
+        if (topic === readingJsonTopic) {
+          try {
+            const data = JSON.parse(text);
+            if (data && typeof data.weight === 'number') setWeight(data.weight);
+            else console.warn('[MQTT] reading_json missing weight:', text);
+          } catch (e) {
+            console.warn('[MQTT] invalid reading_json:', e, text);
+          }
+          return;
+        }
+
+        if (topic === statusTopic) {
+          const s = text.trim();
+          if (s === 'PRINT_OK') toast('success', 'In phiếu thành công');
+          else if (s === 'PRINT_ERROR') toast('error', 'In phiếu thất bại');
+          else if (s === 'ONLINE') toast('success', 'PC trung tâm ONLINE');
+          else if (s === 'OFFLINE') toast('warning', 'PC trung tâm OFFLINE');
+          return;
+        }
+
+        // Optional: log other topics
+        // console.debug('[MQTT] other topic', topic, text);
+      } catch (e) {
+        console.error('[MQTT] Message handler error:', e);
       }
     });
 
