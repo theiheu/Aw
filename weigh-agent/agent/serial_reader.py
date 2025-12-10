@@ -15,6 +15,33 @@ except Exception:  # pragma: no cover
 log = logging.getLogger(__name__)
 
 
+# Helpers to map config values to pyserial constants
+_DEF_PARITY = {
+    "N": getattr(serial, "PARITY_NONE", "N") if serial else "N",
+    "E": getattr(serial, "PARITY_EVEN", "E") if serial else "E",
+    "O": getattr(serial, "PARITY_ODD", "O") if serial else "O",
+    "M": getattr(serial, "PARITY_MARK", "M") if serial else "M",
+    "S": getattr(serial, "PARITY_SPACE", "S") if serial else "S",
+}
+_DEF_BYTESIZE = {
+    5: getattr(serial, "FIVEBITS", 5) if serial else 5,
+    6: getattr(serial, "SIXBITS", 6) if serial else 6,
+    7: getattr(serial, "SEVENBITS", 7) if serial else 7,
+    8: getattr(serial, "EIGHTBITS", 8) if serial else 8,
+}
+_DEF_STOPBITS = {
+    1: getattr(serial, "STOPBITS_ONE", 1) if serial else 1,
+    2: getattr(serial, "STOPBITS_TWO", 2) if serial else 2,
+}
+
+
+def _decode_escapes(s: str) -> bytes:
+    try:
+        return s.encode('utf-8').decode('unicode_escape').encode('latin1', errors='ignore')
+    except Exception:
+        return s.encode('utf-8', errors='ignore')
+
+
 class ScaleReader:
     def __init__(
         self,
@@ -34,6 +61,18 @@ class ScaleReader:
         fake_noise: float = 5.0,
         fake_step: float = 250.0,
         fake_manual_weight: float = 1234.0,
+        # Serial advanced
+        bytesize: int = 8,
+        parity: str = "N",
+        stopbits: int = 1,
+        xonxoff: bool = False,
+        rtscts: bool = False,
+        dsrdtr: bool = False,
+        dtr_on_open: bool = False,
+        rts_on_open: bool = False,
+        # Polling
+        poll_command: str = "",
+        poll_interval_ms: int = 0,
     ) -> None:
         self.port = port
         self.baudrate = baudrate
@@ -53,6 +92,21 @@ class ScaleReader:
         self.fake_step = fake_step
         self._fake_manual_weight = fake_manual_weight
 
+        # Serial advanced
+        self.bytesize = bytesize
+        self.parity = parity.upper() if isinstance(parity, str) else parity
+        self.stopbits = stopbits
+        self.xonxoff = xonxoff
+        self.rtscts = rtscts
+        self.dsrdtr = dsrdtr
+        self.dtr_on_open = dtr_on_open
+        self.rts_on_open = rts_on_open
+
+        # Polling
+        self.poll_interval_ms = max(0, int(poll_interval_ms))
+        self._poll_bytes = _decode_escapes(poll_command) if poll_command else b""
+        self._last_poll = 0.0
+
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._ser = None
@@ -64,7 +118,6 @@ class ScaleReader:
         if list_ports:
             ports = [p.device for p in list_ports.comports()]
         else:
-            # Fallback guesses
             ports = [
                 "COM1","COM2","COM3","COM4","/dev/ttyUSB0","/dev/ttyUSB1","/dev/ttyS0","/dev/ttyS1",
             ]
@@ -115,7 +168,6 @@ class ScaleReader:
             t = now - t0
             w = self._fake_value(t, period, value)
             self._emit(w)
-            # For step mode, update value across iterations
             if self.fake_mode == "step":
                 value += self.fake_step
                 if value >= self.fake_max:
@@ -142,26 +194,45 @@ class ScaleReader:
             with self._lock:
                 base = self._fake_manual_weight
         else:
-            # default sine
             mid = (fmin + fmax) / 2.0
             amp = (fmax - fmin) / 2.0
             base = mid + amp * math_sin(tau() * (1.0 / period) * t)
         return base + noise
 
+    def _open_serial(self):
+        if serial is None:
+            raise RuntimeError("pyserial not available")
+        ser = serial.Serial(
+            self.port,
+            self.baudrate,
+            timeout=1,
+            bytesize=_DEF_BYTESIZE.get(self.bytesize, _DEF_BYTESIZE[8]),
+            parity=_DEF_PARITY.get(self.parity, _DEF_PARITY["N"]),
+            stopbits=_DEF_STOPBITS.get(self.stopbits, _DEF_STOPBITS[1]),
+            xonxoff=self.xonxoff,
+            rtscts=self.rtscts,
+            dsrdtr=self.dsrdtr,
+        )
+        # Set DTR/RTS lines if requested
+        try:
+            if self.dtr_on_open and hasattr(ser, "setDTR"):
+                ser.setDTR(True)
+            if self.rts_on_open and hasattr(ser, "setRTS"):
+                ser.setRTS(True)
+        except Exception:
+            pass
+        return ser
+
     def _run_serial(self) -> None:
-        # Do NOT fall back to simulation when simulate=False.
-        # Instead, keep trying to open the serial port and log errors.
         if serial is None:
             log.error("pyserial is not available. Install pyserial to read real scale.")
-            # Wait until stop
             while not self._stop.is_set():
                 time.sleep(1.0)
             return
 
-        # Attempt to open the port with retry
         while not self._stop.is_set():
             try:
-                self._ser = serial.Serial(self.port, self.baudrate, timeout=1)
+                self._ser = self._open_serial()
                 log.info("Opened serial port %s @ %d", self.port, self.baudrate)
                 break
             except Exception as e:
@@ -174,16 +245,25 @@ class ScaleReader:
         buff = bytearray()
         while not self._stop.is_set():
             try:
+                # Optional poll
+                if self._poll_bytes and self.poll_interval_ms > 0:
+                    now = time.time()
+                    if (now - self._last_poll) * 1000.0 >= self.poll_interval_ms:
+                        try:
+                            self._ser.write(self._poll_bytes)
+                        except Exception:
+                            pass
+                        self._last_poll = now
+
                 chunk = self._ser.read(self._ser.in_waiting or 1)
                 if not chunk:
                     continue
                 buff += chunk
 
-                # Bound buffer growth
-                if len(buff) > 2048:
-                    buff = buff[-1024:]
+                if len(buff) > 4096:
+                    buff = buff[-2048:]
 
-                # Prefer STX/ETX framing if present (0x02 .. 0x03)
+                # STX/ETX framing
                 processed = False
                 while True:
                     stx = buff.find(b"\x02")
@@ -191,12 +271,10 @@ class ScaleReader:
                         break
                     etx = buff.find(b"\x03", stx + 1)
                     if etx == -1:
-                        # Keep from STX onward, discard leading noise
                         if stx > 0:
                             del buff[:stx]
                         break
                     frame = bytes(buff[stx + 1 : etx])
-                    # Remove processed part
                     del buff[: etx + 1]
                     text = frame.decode(self.encoding, errors="ignore")
                     m = self.pattern.search(text)
@@ -210,7 +288,7 @@ class ScaleReader:
                 if processed:
                     continue
 
-                # Fallback: newline-delimited lines
+                # Newline-delimited fallback
                 nl = max(buff.find(b"\n"), buff.find(b"\r"))
                 if nl != -1:
                     line = bytes(buff[:nl])
@@ -232,11 +310,9 @@ class ScaleReader:
 
 
 def math_sin(x: float) -> float:
-    # Separate to avoid importing math at module top in constrained envs
     import math
     return math.sin(x)
 
 
 def tau() -> float:
-    # 2 * pi constant
     return 6.283185307179586

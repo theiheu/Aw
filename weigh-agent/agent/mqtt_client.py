@@ -78,20 +78,19 @@ class MqttClient:
         if self._thread:
             self._thread.join(timeout=2)
 
-    def publish_status(self, status: str) -> None:
-        self._publish(self.topics.status, status, retain=False, qos=1)
+    def publish_status(self, status: str, qos: int = 1, retain: bool = False) -> None:
+        self._publish(self.topics.status, status, retain=retain, qos=qos)
 
-    def publish_reading(self, value: float, retain: bool = False) -> None:
-        # Publish as plain text number so frontend can parse easily
+    def publish_reading(self, value: float, retain: bool = False, qos: int = 0) -> None:
         payload = ("%f" % value).rstrip("0").rstrip(".")
-        self._publish(self.topics.reading, payload, retain=retain, qos=0)
+        self._publish(self.topics.reading, payload, retain=retain, qos=qos)
 
-    def publish_reading_json(self, obj: dict, retain: bool = False) -> None:
+    def publish_reading_json(self, obj: dict, retain: bool = False, qos: int = 0) -> None:
         try:
             payload = json.dumps(obj, separators=(",", ":"))
         except Exception:
             payload = "{}"
-        self._publish(self.topics.reading_json, payload, retain=retain, qos=0)
+        self._publish(self.topics.reading_json, payload, retain=retain, qos=qos)
 
     def _publish(self, topic: str, payload: str, retain: bool = False, qos: int = 0) -> None:
         try:
@@ -142,7 +141,7 @@ class MqttClient:
                 log.info("MQTT connected (%s:%s)", self.host, self.port)
                 try:
                     client.subscribe(self.topics.print, qos=1)
-                    self.publish_status("ONLINE")
+                    # do not publish here; agent will publish status from app
                 except Exception as e:
                     log.error("Subscribe failed: %s", e)
             else:

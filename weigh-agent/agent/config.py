@@ -20,7 +20,7 @@ class AgentConfig:
     serialEncoding: str = "ascii"
     serialRegex: str = r"(?P<weight>[+-]?\d+(?:\.\d+)?)"
     decimals: int = 0
-    simulateScale: bool = True
+    simulateScale: bool = False
     # Fake scale parameters
     fakeMode: str = "sine"  # sine | random | saw | step | manual
     fakeMin: float = 1000.0
@@ -29,24 +29,59 @@ class AgentConfig:
     fakeNoise: float = 5.0
     fakeStep: float = 250.0
     fakeManualWeight: float = 1234.0
+
+    # Printing
+    printerName: str = ""
+    sumatraPath: str = ""  # Windows optional SumatraPDF.exe path for reliable CLI printing
+
+    # Backend
     backendUrl: str = ""
     backendEventsEndpoint: str = "/api/events"
     backendEnabled: bool = False
     backendMinIntervalMs: int = 500
     backendDeltaThreshold: float = 5.0
     backendApiKey: str = ""
+
+    # Publish/base
     publishIntervalMs: int = 300
     logLevel: str = "INFO"
-    printerName: str = ""
-    # Optimization / filtering
+
+    # Filtering / transform
     filterMinDelta: float = 5.0
     filterThrottleMs: int = 300
     filterMedianWindow: int = 5
     scaleFactor: float = 1.0
     scaleOffset: float = 0.0
+
+    # Stability detection
+    stableWindow: int = 5
+    stableDeltaMax: float = 2.0
+    stableStdMax: float = 0.5
+    onlyPrintWhenStable: bool = False
+
+    # Reading JSON / heartbeat / retain
     readingJsonEnabled: bool = True
-    statusHeartbeatSec: int = 30
     retainLastReading: bool = False
+    statusHeartbeatSec: int = 30
+
+    # MQTT QoS/retain
+    readingQos: int = 0
+    statusQos: int = 1
+    retainStatus: bool = False
+
+    # Serial advanced
+    bytesize: int = 8  # 5,6,7,8
+    parity: str = "N"  # N,E,O,M,S
+    stopbits: int = 1  # 1 or 2
+    xonxoff: bool = False
+    rtscts: bool = False
+    dsrdtr: bool = False
+    dtrOnOpen: bool = False
+    rtsOnOpen: bool = False
+
+    # Poll command
+    pollCommand: str = ""   # e.g. "SI\r\n" ; supports \r \n escapes
+    pollIntervalMs: int = 0  # 0 = disabled
 
     @staticmethod
     def load(path: Optional[Path] = None) -> "AgentConfig":
@@ -65,4 +100,3 @@ class AgentConfig:
         p = path or DEFAULT_CONFIG_PATH
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(asdict(self), indent=2, ensure_ascii=False), encoding="utf-8")
-

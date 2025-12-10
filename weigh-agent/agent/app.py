@@ -6,7 +6,7 @@ import threading
 import time
 import logging
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from datetime import datetime, timezone
 
 from .config import AgentConfig, DEFAULT_CONFIG_PATH
@@ -23,12 +23,14 @@ class WeighAgent:
     def __init__(self, config: AgentConfig) -> None:
         self.cfg = config
         self.latest_weight: Optional[float] = None
+        self.latest_stable: bool = False
         self._lock = threading.Lock()
 
-        # Filter state
+        # Filter/stability state
         self._buf: List[float] = []
         self._last_pub_value: Optional[float] = None
         self._last_pub_time: float = 0.0
+        self._stable_buf: List[float] = []
 
         self.scale = ScaleReader(
             port=self.cfg.serialPort,
@@ -46,6 +48,18 @@ class WeighAgent:
             fake_noise=self.cfg.fakeNoise,
             fake_step=self.cfg.fakeStep,
             fake_manual_weight=self.cfg.fakeManualWeight,
+            # Advanced serial
+            bytesize=self.cfg.bytesize,
+            parity=self.cfg.parity,
+            stopbits=self.cfg.stopbits,
+            xonxoff=self.cfg.xonxoff,
+            rtscts=self.cfg.rtscts,
+            dsrdtr=self.cfg.dsrdtr,
+            dtr_on_open=self.cfg.dtrOnOpen,
+            rts_on_open=self.cfg.rtsOnOpen,
+            # Poll
+            poll_command=self.cfg.pollCommand,
+            poll_interval_ms=self.cfg.pollIntervalMs,
         )
         self.mqtt = MqttClient(
             host=self.cfg.mqttHost,
@@ -96,24 +110,47 @@ class WeighAgent:
         self._last_pub_value = mid
         return mid
 
+    def _calc_stable(self, v: float) -> Tuple[bool, float, float]:
+        # Keep stability buffer
+        w = max(1, int(self.cfg.stableWindow))
+        self._stable_buf.append(v)
+        if len(self._stable_buf) > w:
+            self._stable_buf = self._stable_buf[-w:]
+        if len(self._stable_buf) < w:
+            return False, 0.0, 0.0
+        arr = self._stable_buf
+        dmax = max(arr) - min(arr)
+        mean = sum(arr) / len(arr)
+        var = sum((x - mean) ** 2 for x in arr) / len(arr)
+        try:
+            import math
+            std = math.sqrt(var)
+        except Exception:
+            std = 0.0
+        stable = (dmax <= float(self.cfg.stableDeltaMax)) and (std <= float(self.cfg.stableStdMax))
+        return stable, dmax, std
+
     # Callbacks
     def _on_weight(self, w: float) -> None:
         # Filter pipeline
         v = self._apply_filters(w)
         if v is None:
             return
+        stable, dmax, std = self._calc_stable(v)
         with self._lock:
             self.latest_weight = v
+            self.latest_stable = stable
         try:
-            self.mqtt.publish_reading(v, retain=bool(self.cfg.retainLastReading))
+            self.mqtt.publish_reading(v, retain=bool(self.cfg.retainLastReading), qos=int(self.cfg.readingQos))
             if bool(self.cfg.readingJsonEnabled):
                 obj = {
                     "weight": v,
                     "unit": "kg",
+                    "stable": stable,
                     "machineId": self.cfg.machineId,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
-                self.mqtt.publish_reading_json(obj, retain=bool(self.cfg.retainLastReading))
+                self.mqtt.publish_reading_json(obj, retain=bool(self.cfg.retainLastReading), qos=int(self.cfg.readingQos))
         except Exception:
             pass
         try:
@@ -127,28 +164,36 @@ class WeighAgent:
         if not secret or secret != self.cfg.printSecret:
             log.warning("Print rejected: invalid secret")
             try:
-                self.mqtt.publish_status("PRINT_ERROR")
+                self.mqtt.publish_status("PRINT_ERROR", qos=int(self.cfg.statusQos), retain=bool(self.cfg.retainStatus))
             except Exception:
                 pass
             return
+        if bool(self.cfg.onlyPrintWhenStable):
+            if not self.latest_stable:
+                log.warning("Print rejected: weight not stable")
+                try:
+                    self.mqtt.publish_status("PRINT_ERROR", qos=int(self.cfg.statusQos), retain=bool(self.cfg.retainStatus))
+                except Exception:
+                    pass
+                return
         try:
             pdf_bytes = ensure_bytes_from_payload(payload)
             printer_name = None
             if isinstance(payload, dict):
                 printer_name = payload.get("printer") or (self.cfg.printerName or None)
-            print_pdf_bytes(pdf_bytes, printer=printer_name)
+            print_pdf_bytes(pdf_bytes, printer=printer_name, sumatra_path=(self.cfg.sumatraPath or None))
             log.info("Printed PDF successfully")
-            self.mqtt.publish_status("PRINT_OK")
+            self.mqtt.publish_status("PRINT_OK", qos=int(self.cfg.statusQos), retain=bool(self.cfg.retainStatus))
             try:
                 self.backend.push_print("OK")
             except Exception:
                 pass
         except PrintError as e:
             log.error("Print error: %s", e)
-            self.mqtt.publish_status("PRINT_ERROR")
+            self.mqtt.publish_status("PRINT_ERROR", qos=int(self.cfg.statusQos), retain=bool(self.cfg.retainStatus))
         except Exception as e:
             log.exception("Unexpected print error: %s", e)
-            self.mqtt.publish_status("PRINT_ERROR")
+            self.mqtt.publish_status("PRINT_ERROR", qos=int(self.cfg.statusQos), retain=bool(self.cfg.retainStatus))
 
     # Heartbeat
     def _heartbeat_loop(self) -> None:
@@ -157,7 +202,7 @@ class WeighAgent:
             return
         while not self._hb_stop.wait(timeout=interval):
             try:
-                self.mqtt.publish_status("ONLINE")
+                self.mqtt.publish_status("ONLINE", qos=int(self.cfg.statusQos), retain=bool(self.cfg.retainStatus))
             except Exception:
                 pass
 
@@ -178,6 +223,11 @@ class WeighAgent:
         # Start heartbeat
         self._hb_thread = threading.Thread(target=self._heartbeat_loop, name="AgentHeartbeat", daemon=True)
         self._hb_thread.start()
+        # Initial status
+        try:
+            self.mqtt.publish_status("ONLINE", qos=int(self.cfg.statusQos), retain=bool(self.cfg.retainStatus))
+        except Exception:
+            pass
         log.info("WeighAgent started for machineId=%s", self.cfg.machineId)
 
     def stop(self) -> None:
@@ -185,7 +235,7 @@ class WeighAgent:
             return
         self.scale.stop()
         try:
-            self.mqtt.publish_status("OFFLINE")
+            self.mqtt.publish_status("OFFLINE", qos=int(self.cfg.statusQos), retain=bool(self.cfg.retainStatus))
         except Exception:
             pass
         try:
