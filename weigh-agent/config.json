@@ -10,7 +10,7 @@
   "serialEncoding": "ascii",
   "serialRegex": "(?P<weight>-?\\d+(?:\\.\\d+)?)",
   "decimals": 0,
-  "simulateScale": false,
+  "simulateScale": true,
   "fakeMode": "random",
   "fakeMin": 1000.0,
   "fakeMax": 30000.0,
