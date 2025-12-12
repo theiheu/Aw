@@ -88,15 +88,14 @@ export const PrintableTicket: React.FC<PrintableTicketProps> = ({ ticket, statio
           {/* Signatures area (four columns) */}
           <div className="grid grid-cols-4 gap-6 mt-6 pt-4">
             <SignatureCol title="Bảo vệ" />
-            <SignatureCol title="Tài xế" bottomText={ticket.driverName} />
+            {/* Không hiển thị tên tài xế */}
+            <SignatureCol title="Tài xế" />
             <SignatureCol title="Thủ kho" />
-            <SignatureCol title="Nhân viên cân" bottomText={displayOperatorName} signatureImage={ticket.signatureImage} />
+            {/* Nâng tên nhân viên cân để tránh sát viền */}
+            <SignatureCol title="Nhân viên cân" bottomText={displayOperatorName} signatureImage={ticket.signatureImage} compact />
           </div>
 
-          {/* Footer note */}
-          <div className="text-center text-[11px] text-slate-600 italic mt-auto pt-5">
-            {stationInfo.footerNote || 'Phần mềm cân điện tử - Bản quyền thuộc về đơn vị triển khai.'}
-          </div>
+          {/* Footer note removed as requested */}
         </div>
       </div>
     </div>
@@ -141,16 +140,18 @@ interface SignatureColProps {
   title: string;
   bottomText?: string;
   signatureImage?: string;
+  compact?: boolean; // giảm chiều cao vùng chữ ký để kéo tên lên trên
 }
 
-const SignatureCol: React.FC<SignatureColProps> = ({ title, bottomText, signatureImage }) => {
+const SignatureCol: React.FC<SignatureColProps> = ({ title, bottomText, signatureImage, compact }) => {
+  const sigHeightClass = compact ? 'h-12' : 'h-16';
   return (
     <div className="flex flex-col items-center">
       <div className="text-center mb-1">
         <p className="text-xs font-bold uppercase text-slate-900">{title}</p>
         <p className="text-[10px] italic text-slate-500">(Ký và ghi rõ họ tên)</p>
       </div>
-      <div className="h-16 w-full flex items-center justify-center">
+      <div className={`${sigHeightClass} w-full flex items-center justify-center`}>
         {signatureImage && (
           <img
             src={signatureImage}
@@ -159,7 +160,7 @@ const SignatureCol: React.FC<SignatureColProps> = ({ title, bottomText, signatur
           />
         )}
       </div>
-      <div className="text-center">
+      <div className="text-center mt-1">
         <p className="text-sm font-bold text-slate-900 px-1 uppercase break-words">{bottomText || ''}</p>
       </div>
     </div>

@@ -1021,7 +1021,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                   </div>
                 )}
               </div>
-              <div className="pb-4">{renderActionButtons()}</div>
+              <div className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-industrial-border p-3 rounded-t-lg shadow-lg">{renderActionButtons()}</div>
             </>
           )}
 
@@ -1088,7 +1088,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
         </div>
 
         {/* Operation Form - Scrollable Area */}
-        <div className="flex-grow overflow-y-auto p-6 custom-scrollbar">
+        <div className="flex-grow overflow-y-auto p-6 pb-40 custom-scrollbar">
           {isEditing && (
             <div className="mb-6 p-3 bg-amber-100 border border-amber-300 rounded-lg flex justify-center items-center text-amber-800 text-sm shadow-sm animate-pulse">
               <EditIcon className="w-5 h-5 mr-2" />
@@ -1237,11 +1237,10 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
               />
             </div>
           </div>
-        </div>
-
-        {/* Footer Actions */}
-        <div className="p-6 border-t border-industrial-border bg-slate-50">
-          {renderActionButtons()}
+          {/* Sticky Actions inside scroll area for desktop */}
+          <div className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-industrial-border p-4 shadow-lg">
+            {renderActionButtons()}
+          </div>
         </div>
       </div>
 
