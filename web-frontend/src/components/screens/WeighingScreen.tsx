@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useMqtt } from '../../hooks/useMqtt';
 import { WeighTicket, Vehicle, Customer, Product, TicketStatus, User, StationInfo } from '../../types';
 import {
@@ -11,6 +11,7 @@ import {
   FilterIcon,
   EditIcon,
   SaveIcon,
+  XIcon,
 } from '../common/icons';
 import { UI_CONFIG, PAGINATION } from '../../constants/app';
 
@@ -42,25 +43,120 @@ const InputField: React.FC<{
   onChange: (value: string) => void;
   placeholder: string;
   options?: string[];
-  dataListId?: string;
+  dataListId?: string; // unused in new UI, kept for compatibility
   disabled?: boolean;
   icon: React.ReactNode;
   className?: string;
   type?: string;
-}> = React.memo(
-  ({
-    label,
-    value,
-    onChange,
-    placeholder,
-    options,
-    dataListId,
-    disabled,
-    icon,
-    className,
-    type = 'text',
-  }) => (
-    <div className={className}>
+}> = React.memo(({
+  label,
+  value,
+  onChange,
+  placeholder,
+  options,
+  dataListId,
+  disabled,
+  icon,
+  className,
+  type = 'text',
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [highlight, setHighlight] = useState(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  const items = useMemo(() => {
+    const v = String(((open ? query : value) || '')).toLowerCase();
+    const src = options || [];
+    const filtered = v ? src.filter((o) => o.toLowerCase().includes(v)) : src.slice(0, 50);
+    return filtered.slice(0, 100);
+  }, [options, query, value, open]);
+
+  const scrollToIndex = (idx: number) => {
+    if (!listRef.current) return;
+    const child = listRef.current.children[idx] as HTMLElement | undefined;
+    if (child && typeof child.scrollIntoView === 'function') {
+      child.scrollIntoView({ block: 'nearest' });
+    }
+  };
+
+  const applyHighlight = (idx: number, updateValue: boolean) => {
+    const clamped = Math.max(0, Math.min(idx, Math.max(items.length - 1, 0)));
+    setHighlight(clamped);
+    if (updateValue) {
+      const chosen = items[clamped];
+      if (chosen) onChange(chosen);
+    }
+    // Ensure the item is visible
+    setTimeout(() => scrollToIndex(clamped), 0);
+  };
+
+  useEffect(() => {
+    if (open) {
+      const currentIdx = items.findIndex((o) => String(o) === String(value));
+      setHighlight(currentIdx >= 0 ? currentIdx : 0);
+      setTimeout(() => scrollToIndex(currentIdx >= 0 ? currentIdx : 0), 0);
+    }
+  }, [open, value, options, query]);
+
+  const isCombo = !!options && options.length > 0 && type === 'text' && !disabled;
+
+  useEffect(() => {
+    if (!open) setQuery('');
+  }, [open]);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+
+  useEffect(() => setHighlight(0), [open, options, query, value]);
+
+  const handleInputChange = (val: string) => {
+    onChange(val);
+    if (isCombo) {
+      setQuery(val);
+      if (!open) setOpen(true);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isCombo || !open) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      applyHighlight(highlight + 1, false);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      applyHighlight(highlight - 1, false);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const chosen = items[highlight];
+      if (chosen) {
+        onChange(chosen);
+        setOpen(false);
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!isCombo || !open || items.length === 0) return;
+    e.preventDefault();
+    const dir = e.deltaY > 0 ? 1 : -1;
+    applyHighlight(highlight + dir, true);
+  };
+
+  const showClear = !disabled && String(value || '').length > 0;
+
+  return (
+    <div className={className} ref={containerRef}>
       <label className="block text-[10px] font-bold text-industrial-muted uppercase tracking-wider mb-1.5">
         {label}
       </label>
@@ -72,24 +168,55 @@ const InputField: React.FC<{
         </div>
         <input
           type={type}
-          list={dataListId}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={String(value)}
+          onFocus={() => isCombo && setOpen(true)}
+          onClick={() => isCombo && setOpen(true)}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-industrial-border rounded-md text-industrial-text text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary focus:bg-white disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed transition-all"
+          className="block w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-industrial-border rounded-md text-industrial-text text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary focus:bg-white disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed transition-all"
         />
-        {options && dataListId && (
-          <datalist id={dataListId}>
-            {options.map((opt) => (
-              <option key={opt} value={opt} />
-            ))}
-          </datalist>
+        {showClear && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600"
+            aria-label="Xoá nội dung"
+          >
+            <XIcon className="w-4 h-4" />
+          </button>
+        )}
+
+        {isCombo && open && (
+          <div ref={listRef} onWheel={handleWheel} className="absolute z-50 mt-1 left-0 right-0 bg-white border border-industrial-border rounded-md shadow-lg max-h-56 overflow-auto">
+            {items.length > 0 ? (
+              items.map((opt, idx) => {
+                const active = idx === highlight;
+                return (
+                  <button
+                    type="button"
+                    key={opt + idx}
+                    onMouseEnter={() => setHighlight(idx)}
+                    onClick={() => {
+                      onChange(opt);
+                      setOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm ${active ? 'bg-blue-600 text-white' : 'hover:bg-slate-50'} transition-colors`}
+                  >
+                    {opt}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-3 py-2 text-sm text-slate-500">Không có kết quả</div>
+            )}
+          </div>
         )}
       </div>
     </div>
-  )
-);
+  );
+});
 
 const TextAreaField: React.FC<{
   label: string;
@@ -727,6 +854,22 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     setVisibleCount((prev) => Math.min(prev + PAGINATION.ITEMS_PER_LOAD, filteredTickets.length));
   }, [filteredTickets.length]);
 
+  // Create New Ticket: reset form state and switch to weigh tab on mobile
+  const handleCreateNewTicket = useCallback(() => {
+    setSelectedTicket(null);
+    setIsEditing(false);
+    setPlateNumber('');
+    setCustomerName('');
+    setProductName('');
+    setDriver('');
+    setNotes('');
+    setEditGross(0);
+    setEditTare(0);
+    setCapturedWeight(null);
+    setOperatorName(props.stationInfo.defaultOperatorName || props.currentUser.name);
+    if (isMobile) setActiveMobileTab('weigh');
+  }, [isMobile, props.currentUser.name, props.stationInfo.defaultOperatorName]);
+
   const renderActionButtons = () => {
     const commonDisabled = connectionStatus !== 'connected';
 
@@ -844,7 +987,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
               </div>
             </button>
             <button
-              onClick={() => setSelectedTicket(null)}
+              onClick={handleCreateNewTicket}
               className={`${BtnClass} bg-white text-brand-primary border-brand-primary hover:bg-blue-50 col-span-2`}
             >
               <span className="font-bold uppercase">Tạo Phiếu Mới</span>
@@ -861,29 +1004,9 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
       <div className="h-full flex flex-col bg-industrial-bg overflow-hidden">
         <div className="shrink-0">
           <DigitalDisplay weight={weight} status={connectionStatus} isMobile={true} />
-          <div className="px-4 py-2 border-b border-industrial-border bg-white flex items-center gap-2">
-            <button
-              onClick={handleCaptureWeight}
-              disabled={connectionStatus !== 'connected' || weight <= 0}
-              className="px-3 py-1.5 text-sm font-bold rounded border border-industrial-border bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Nhận dữ liệu
-            </button>
-            {capturedWeight != null && (
-              <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">
-                Đã nhận: {capturedWeight.toLocaleString('vi-VN')} kg
-              </span>
-            )}
-            {capturedWeight != null && (
-              <button
-                onClick={() => setCapturedWeight(null)}
-                className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-50"
-              >
-                Xoá
-              </button>
-            )}
-          </div>
         </div>
+
+
 
         <div className="border-b border-industrial-border bg-white shrink-0 shadow-sm z-10">
           <nav className="flex">
@@ -1066,6 +1189,15 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
 
               <div className="mt-4">
                 {renderActionButtons()}
+              </div>
+
+              <div className="mt-4 border-t border-industrial-border bg-white">
+                <button
+                  onClick={handleCreateNewTicket}
+                  className="w-full px-4 py-3 text-base font-bold rounded-lg border-0 bg-brand-success text-white hover:bg-emerald-600 active:scale-95 transition-all shadow-md hover:shadow-lg"
+                >
+                  Tạo phiếu mới
+                </button>
               </div>
 
             </>
