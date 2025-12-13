@@ -422,6 +422,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     props.stationInfo.defaultOperatorName || props.currentUser.name
   );
   const [notes, setNotes] = useState('');
+  const [capturedWeight, setCapturedWeight] = useState<number | null>(null);
 
   // States for Manual Weight Editing
   const [editGross, setEditGross] = useState<number>(0);
@@ -497,16 +498,20 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     });
   }, [props.tickets, debouncedSearchTerm, filters]);
 
+  // Live net preview for second weigh
+  const liveNet = useMemo(() => {
+    if (!selectedTicket || formMode !== 'second_weigh') return 0;
+    const g = Number(selectedTicket.grossWeight || 0);
+    return Math.abs(g - Number(weight || 0));
+  }, [selectedTicket, formMode, weight]);
+
   // --- AUTO-FILL LOGIC ---
-  // Automatically fill form when plateNumber matches an existing vehicle
   useEffect(() => {
-    // Only auto-fill in 'new' mode and when plateNumber is provided
     if (formMode === 'new' && plateNumber.length >= 3) {
       const foundVehicle = props.vehicles.find(
         (v) => v.plateNumber.toLowerCase() === plateNumber.toLowerCase()
       );
       if (foundVehicle) {
-        // If exact match found, fill stored data if it exists
         if (foundVehicle.lastCustomerName) setCustomerName(foundVehicle.lastCustomerName);
         if (foundVehicle.lastProductName) setProductName(foundVehicle.lastProductName);
         if (foundVehicle.lastDriverName) setDriver(foundVehicle.lastDriverName);
@@ -516,7 +521,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
 
   useEffect(() => {
     if (selectedTicket) {
-      setIsEditing(false); // Reset editing state when switching tickets
+      setIsEditing(false);
       setPlateNumber(selectedTicket.vehicle.plateNumber);
       setCustomerName(selectedTicket.customer.name);
       setProductName(selectedTicket.product.name);
@@ -539,7 +544,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
       setNotes('');
       setEditGross(0);
       setEditTare(0);
-      // Use default from settings when clearing/starting new
       setOperatorName(props.stationInfo.defaultOperatorName || props.currentUser.name);
     }
   }, [selectedTicket, props.currentUser.name, props.stationInfo.defaultOperatorName]);
@@ -548,16 +552,10 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
   const handleTicketSelect = useCallback(
     (ticket: WeighTicket) => {
       setSelectedTicket(ticket);
-
-      // If on mobile, switch to detail view immediately so user sees what they clicked
       if (isMobile) setActiveMobileTab('weigh');
-
       if (ticket.status === TicketStatus.PENDING_SECOND_WEIGH) {
         return;
       }
-
-      // If ticket is completed/single, DIRECTLY open Print Preview
-      // BUT check if we are not in edit mode. If we are just selecting, it's fine.
       if (ticket.status === TicketStatus.COMPLETED || ticket.status === TicketStatus.SINGLE_WEIGH) {
         props.onPrintRequest(ticket);
       }
@@ -574,10 +572,8 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
 
       let newIndex;
       if (direction === 'prev') {
-        // "Newer" visual direction (Right Swipe)
         newIndex = currentIndex - 1;
       } else {
-        // "Older" visual direction (Left Swipe)
         newIndex = currentIndex + 1;
       }
 
@@ -607,26 +603,22 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     const isLeftSwipe = distance > MIN_SWIPE_DISTANCE;
     const isRightSwipe = distance < -MIN_SWIPE_DISTANCE;
 
-    if (isLeftSwipe) navigateTicket('next'); // Show older
-    if (isRightSwipe) navigateTicket('prev'); // Show newer
+    if (isLeftSwipe) navigateTicket('next');
+    if (isRightSwipe) navigateTicket('prev');
   };
 
   // --- Handlers for New/Process Weighing ---
   const handleSubmit = useCallback(
     (type: 'first' | 'single' | 'second') => {
-      if (connectionStatus !== 'connected' || weight <= 0) {
+      const w = capturedWeight ?? weight;
+      if (connectionStatus !== 'connected' || w <= 0) {
         alert('Chưa nhận được dữ liệu hợp lệ từ trạm cân. Vui lòng kiểm tra kết nối.');
         return;
       }
       if (type === 'second') {
         if (!selectedTicket || formMode !== 'second_weigh') return;
-        // When confirming second weigh, we use the current input values (in case they were edited)
-        // Note: plateNumber is usually fixed, but we allow editing customer/product/driver/notes
-
-        // Find or create/update entities with current names
         const updatedCustomer = { ...selectedTicket.customer, name: customerName };
         const updatedProduct = { ...selectedTicket.product, name: productName };
-
         const updatedTicket: WeighTicket = {
           ...selectedTicket,
           customer: updatedCustomer,
@@ -634,25 +626,25 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
           driverName: driver,
           operatorName: operatorName,
           notes: notes,
-          tareWeight: weight,
-          netWeight: Math.abs(selectedTicket.grossWeight - weight),
+          tareWeight: w,
+          netWeight: Math.abs(selectedTicket.grossWeight - w),
           weighOutTime: new Date(),
           status: TicketStatus.COMPLETED,
         };
         props.updateTicket(updatedTicket);
       } else {
-        // Cho phép cân mà không cần điền thông tin đầy đủ. Các trường trống sẽ được điền giá trị mặc định ở tầng xử lý.
         props.processWeighing({
           plateNumber,
           customerName,
           productName,
           driverName: driver,
           operatorName,
-          weight,
+          weight: w,
           type,
           notes,
         });
       }
+      setCapturedWeight(null);
       setSelectedTicket(null);
     },
     [
@@ -671,14 +663,20 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     ]
   );
 
-  // --- Handlers for Editing ---
+  const handleCaptureWeight = () => {
+    if (connectionStatus !== 'connected' || weight <= 0) {
+      alert('Chưa nhận được dữ liệu hợp lệ từ trạm cân. Vui lòng kiểm tra kết nối.');
+      return;
+    }
+    setCapturedWeight(weight);
+  };
+
   const handleEditToggle = () => {
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
     if (selectedTicket) {
-      // Reset fields to original ticket values
       setPlateNumber(selectedTicket.vehicle.plateNumber);
       setCustomerName(selectedTicket.customer.name);
       setProductName(selectedTicket.product.name);
@@ -711,7 +709,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
       grossWeight: editGross,
       tareWeight: editTare,
       netWeight: newNet,
-      // If net changed significantly, maybe update status? Keeping it simple for now.
     };
 
     props.updateTicket(updatedTicket);
@@ -738,7 +735,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
 
     if (isEditing) {
       return (
-        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-industrial-border mt-4">
+        <div className="grid grid-cols-2 gap-3 pt-4">
           <button
             onClick={handleSaveEdit}
             className={`${BtnClass} bg-brand-success text-white border-brand-success hover:bg-emerald-600 col-span-1`}
@@ -761,11 +758,11 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     switch (formMode) {
       case 'new':
         return (
-          <div className="grid grid-cols-2 gap-3 pt-4 border-t border-industrial-border mt-4">
+          <div className="grid grid-cols-2 gap-3 pt-4">
             <button
               onClick={() => handleSubmit('first')}
               disabled={commonDisabled}
-              className={`${BtnClass} bg-brand-primary border-brand-primary hover:bg-blue-700 text-white`}
+              className={`${BtnClass} bg-brand-primary border-brand-primary hover:bg-blue-700 text-white col-span-1`}
             >
               <div className="flex items-center gap-2">
                 <HourglassIcon className="w-5 h-5" />
@@ -778,7 +775,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
             <button
               onClick={() => handleSubmit('single')}
               disabled={commonDisabled}
-              className={`${BtnClass} bg-white border-industrial-border hover:bg-slate-50 text-industrial-text`}
+              className={`${BtnClass} bg-white border-industrial-border hover:bg-slate-50 text-industrial-text col-span-1`}
             >
               <div className="flex items-center gap-2 text-brand-secondary">
                 <CheckCircleIcon className="w-5 h-5" />
@@ -792,7 +789,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
         );
       case 'second_weigh':
         return (
-          <div className="grid grid-cols-2 gap-3 pt-4 border-t border-industrial-border mt-4">
+          <div className="grid grid-cols-2 gap-3 pt-4">
             <button
               onClick={() => handleSubmit('second')}
               disabled={connectionStatus !== 'connected'}
@@ -807,7 +804,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
               <span className="text-xs text-white/80 font-medium mt-1">Hoàn tất phiếu cân</span>
             </button>
 
-            {/* Enable Editing in Pending State */}
             <button
               onClick={handleEditToggle}
               className={`${BtnClass} bg-white text-brand-secondary border-industrial-border hover:bg-slate-50 col-span-1`}
@@ -829,7 +825,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
       case 'view_completed':
         if (!selectedTicket) return null;
         return (
-          <div className="grid grid-cols-2 gap-3 pt-4 border-t border-industrial-border mt-4">
+          <div className="grid grid-cols-2 gap-3 pt-4">
             <button
               onClick={() => props.onPrintRequest(selectedTicket)}
               className={`${BtnClass} bg-industrial-text text-white border-industrial-text hover:bg-black col-span-1`}
@@ -865,6 +861,28 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
       <div className="h-full flex flex-col bg-industrial-bg overflow-hidden">
         <div className="shrink-0">
           <DigitalDisplay weight={weight} status={connectionStatus} isMobile={true} />
+          <div className="px-4 py-2 border-b border-industrial-border bg-white flex items-center gap-2">
+            <button
+              onClick={handleCaptureWeight}
+              disabled={connectionStatus !== 'connected' || weight <= 0}
+              className="px-3 py-1.5 text-sm font-bold rounded border border-industrial-border bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Nhận dữ liệu
+            </button>
+            {capturedWeight != null && (
+              <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">
+                Đã nhận: {capturedWeight.toLocaleString('vi-VN')} kg
+              </span>
+            )}
+            {capturedWeight != null && (
+              <button
+                onClick={() => setCapturedWeight(null)}
+                className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-50"
+              >
+                Xoá
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="border-b border-industrial-border bg-white shrink-0 shadow-sm z-10">
@@ -883,6 +901,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
             </button>
           </nav>
         </div>
+
 
         <div
           className="flex-grow overflow-y-auto p-4 custom-scrollbar pb-24 touch-pan-y"
@@ -909,18 +928,35 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                 </div>
               )}
 
-              {selectedTicket &&
-                selectedTicket.status === TicketStatus.PENDING_SECOND_WEIGH &&
-                !isEditing && (
-                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex justify-between items-center text-amber-900 text-sm shadow-sm">
-                    <span className="font-bold">
-                      Đang cân lần 2: {selectedTicket.vehicle.plateNumber}
-                    </span>
-                    <button onClick={() => setSelectedTicket(null)} className="text-xs underline">
-                      Bỏ chọn
-                    </button>
+
+
+              {/* Live preview for second weigh (mobile) */}
+              {formMode === 'second_weigh' && selectedTicket && (
+                <div className="mb-4 grid grid-cols-2 gap-3">
+                  <div className="bg-white p-3 rounded border border-industrial-border">
+                    <div className="text-[11px] text-industrial-muted uppercase mb-1">Cân lần 1</div>
+                    <div className="text-sm font-bold">
+                      {selectedTicket.grossWeight.toLocaleString('vi-VN')} kg
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      {new Date(selectedTicket.weighInTime).toLocaleString('vi-VN')}
+                    </div>
                   </div>
-                )}
+                  <div className="bg-white p-3 rounded border border-industrial-border">
+                    <div className="text-[11px] text-industrial-muted uppercase mb-1">Cân lần 2 (Live)</div>
+                    <div className="text-sm font-bold">{weight.toLocaleString('vi-VN')} kg</div>
+                  </div>
+                  <div className="col-span-2 bg-emerald-50 p-3 rounded border border-emerald-200">
+                    <div className="text-[11px] text-emerald-700 uppercase mb-1">
+                      Trọng lượng hàng (tạm tính)
+                    </div>
+                    <div className="text-xl font-black text-emerald-800">
+                      {liveNet.toLocaleString('vi-VN')} kg
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-6">
                 <div className="bg-white p-4 rounded-lg border border-industrial-border shadow-sm">
                   <div className="flex items-center gap-2 mb-4 text-brand-primary border-b border-slate-100 pb-2">
@@ -948,7 +984,14 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                       disabled={formMode !== 'new' && !isEditing}
                       icon={<UserIcon className="w-4 h-4" />}
                     />
-                    {/* REMOVED OPERATOR INPUT ON MOBILE */}
+                    <InputField
+                      label="Nhân viên cân"
+                      value={operatorName}
+                      onChange={setOperatorName}
+                      placeholder="Tên nhân viên trực"
+                      disabled={!isEditing && formMode !== 'new'}
+                      icon={<UserIcon className="w-4 h-4" />}
+                    />
                   </div>
                 </div>
 
@@ -989,7 +1032,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                   </div>
                 </div>
 
-                {/* Weight Correction Section for Mobile (Only when editing) */}
                 {isEditing && (
                   <div className="bg-white p-4 rounded-lg border border-industrial-border shadow-sm">
                     <div className="flex items-center gap-2 mb-4 text-brand-accent border-b border-slate-100 pb-2">
@@ -1021,7 +1063,11 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                   </div>
                 )}
               </div>
-              <div className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-industrial-border p-3 rounded-t-lg shadow-lg">{renderActionButtons()}</div>
+
+              <div className="mt-4">
+                {renderActionButtons()}
+              </div>
+
             </>
           )}
 
@@ -1079,16 +1125,41 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
   // Desktop View - 2 Column Layout
   const slicedTickets = filteredTickets.slice(0, visibleCount);
   return (
-    <div className="h-full w-full grid grid-cols-12 bg-industrial-bg overflow-hidden">
+    <div className="h-full w-full grid grid-cols-1 lg:grid-cols-12 bg-industrial-bg overflow-hidden min-h-0">
       {/* COLUMN 1: OPERATION (Scale + Form) - Spans 7 columns */}
-      <div className="col-span-7 flex flex-col h-full border-r border-industrial-border bg-white shadow-[10px_0_30px_-10px_rgba(0,0,0,0.05)] z-10">
+      <div className="col-span-12 lg:col-span-7 flex flex-col h-full min-h-0 overflow-hidden border-r border-industrial-border bg-white shadow-[10px_0_30px_-10px_rgba(0,0,0,0.05)] z-10">
         {/* Scale Header */}
-        <div className="p-6 bg-slate-50 border-b border-industrial-border">
+        <div className="p-6 bg-slate-50 border-b border-industrial-border shrink-0">
           <DigitalDisplay weight={weight} status={connectionStatus} isMobile={false} />
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCaptureWeight}
+                disabled={connectionStatus !== 'connected' || weight <= 0}
+                className="px-3 py-1.5 text-sm font-bold rounded border border-industrial-border bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Nhận dữ liệu
+              </button>
+              {capturedWeight != null && (
+                <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">
+                  Đã nhận: {capturedWeight.toLocaleString('vi-VN')} kg
+                </span>
+              )}
+              {capturedWeight != null && (
+                <button
+                  onClick={() => setCapturedWeight(null)}
+                  className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-50"
+                >
+                  Xoá
+                </button>
+              )}
+            </div>
+          </div>
+
         </div>
 
         {/* Operation Form - Scrollable Area */}
-        <div className="flex-grow overflow-y-auto p-6 pb-40 custom-scrollbar">
+        <div className="flex-grow min-h-0 overflow-y-auto p-6 pb-6 custom-scrollbar">
           {isEditing && (
             <div className="mb-6 p-3 bg-amber-100 border border-amber-300 rounded-lg flex justify-center items-center text-amber-800 text-sm shadow-sm animate-pulse">
               <EditIcon className="w-5 h-5 mr-2" />
@@ -1121,6 +1192,34 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                 </button>
               </div>
             )}
+
+          {/* Live preview for second weigh (desktop) */}
+          {formMode === 'second_weigh' && selectedTicket && (
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-4 rounded border border-industrial-border">
+                <div className="text-[11px] text-industrial-muted uppercase mb-1">Cân lần 1</div>
+                <div className="text-lg font-bold">
+                  {selectedTicket.grossWeight.toLocaleString('vi-VN')} kg
+                </div>
+                <div className="text-[12px] text-slate-500 mt-1">
+                  {new Date(selectedTicket.weighInTime).toLocaleString('vi-VN')}
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded border border-industrial-border">
+                <div className="text-[11px] text-industrial-muted uppercase mb-1">Cân lần 2 (Live)</div>
+                <div className="text-lg font-bold">{weight.toLocaleString('vi-VN')} kg</div>
+                <div className="text-[12px] text-slate-500 mt-1">Đang cập nhật...</div>
+              </div>
+              <div className="bg-emerald-50 p-4 rounded border border-emerald-200">
+                <div className="text-[11px] text-emerald-700 uppercase mb-1">
+                  Trọng lượng hàng (tạm tính)
+                </div>
+                <div className="text-2xl font-black text-emerald-800">
+                  {liveNet.toLocaleString('vi-VN')} kg
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-6">
             {/* Section: Transport */}
@@ -1237,15 +1336,16 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
               />
             </div>
           </div>
-          {/* Sticky Actions inside scroll area for desktop */}
-          <div className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-industrial-border p-4 shadow-lg">
+
+          {/* Action buttons for desktop */}
+          <div className="bg-white border-t border-industrial-border p-4 shadow-lg mt-6">
             {renderActionButtons()}
           </div>
         </div>
       </div>
 
       {/* COLUMN 2: DATA LIST - Spans 5 columns */}
-      <div className="col-span-5 flex flex-col h-full bg-slate-50/50">
+      <div className="col-span-12 lg:col-span-5 flex flex-col h-full min-h-0 overflow-hidden bg-slate-50/50">
         <div className="p-4 border-b border-industrial-border bg-white flex justify-between items-center shadow-sm h-[88px]">
           {' '}
           {/* Fixed height to match header */}
