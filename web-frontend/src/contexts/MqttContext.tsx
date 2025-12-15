@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-// Use default ESM import for mqtt v5 in browser
-// @ts-ignore
+// Use ESM import for mqtt v5 in browser
 import mqtt from 'mqtt';
 
 export type MqttStatus = 'disconnected' | 'connected' | 'connecting' | 'error';
@@ -37,7 +36,7 @@ export const MqttProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [mqttIp] = useState(() => localStorage.getItem('mqttBrokerIp') || 'localhost');
   const [mqttPort] = useState(() => localStorage.getItem('mqttBrokerPort') || '9001');
   const [mqttProto] = useState(() => localStorage.getItem('mqttBrokerProto') || 'ws');
-  const [mqttPath] = useState(() => localStorage.getItem('mqttBrokerPath') || '/mqtt');
+  const [mqttPath] = useState(() => localStorage.getItem('mqttBrokerPath') || '/');
   const [mqttUser] = useState(() => localStorage.getItem('mqttUsername') || '');
   const [mqttPass] = useState(() => localStorage.getItem('mqttPassword') || '');
   const [machineId] = useState(() => localStorage.getItem('machineId') || 'weigh1');

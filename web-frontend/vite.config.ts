@@ -9,6 +9,13 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       host: '0.0.0.0',
       middlewareMode: false,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false,
+        },
+      },
     },
     build: {
       target: 'ES2022',

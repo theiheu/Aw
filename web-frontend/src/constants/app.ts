@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   CUSTOMERS: 'weighCustomers',
   VEHICLES: 'weighVehicles',
   PRODUCTS: 'weighProducts',
+  DRIVERS: 'weighDrivers',
   STATION_INFO: 'stationInfo',
 } as const;
 
@@ -22,6 +23,7 @@ export const DATE_FIELDS = {
   CUSTOMERS: [],
   VEHICLES: [],
   PRODUCTS: [],
+  DRIVERS: ['licenseExpireDate', 'lastTripTime'],
 } as const;
 
 // ID Prefixes
@@ -29,6 +31,7 @@ export const ID_PREFIXES = {
   CUSTOMER: 'cus_',
   VEHICLE: 'veh_',
   PRODUCT: 'prod_',
+  DRIVER: 'drv_',
   TICKET_SINGLE: 'PL',
   TICKET_FIRST: 'PC',
 } as const;
@@ -46,6 +49,8 @@ export const SCREENS = {
   SETTINGS: 'settings',
   DATA_MANAGEMENT: 'dataManagement',
   TICKET_SUBMISSION: 'ticketSubmission',
+  VEHICLE_MANAGEMENT: 'vehicleManagement',
+  DRIVER_MANAGEMENT: 'driverManagement',
 } as const;
 
 // User Roles
@@ -71,14 +76,14 @@ export const DEFAULT_USER = {
 // API Configuration
 export const API_CONFIG = {
   // Use WebSocket over HTTP for browsers; default to server host:9001
-  MQTT_BROKER_URL: (process.env.REACT_APP_MQTT_BROKER_URL as string) || (
-    (typeof window !== 'undefined')
-      ? `ws://${window.location.hostname}:9001`
-      : 'ws://localhost:9001'
-  ),
-  // Use relative path so Nginx in web container can proxy to backend
-  BACKEND_URL: (process.env.REACT_APP_BACKEND_URL as string) || '/api',
-  GEMINI_API_KEY: (process.env.GEMINI_API_KEY as string) || '',
+  MQTT_BROKER_URL:
+    (import.meta as any)?.env?.VITE_MQTT_BROKER_URL ||
+    ((typeof window !== 'undefined') ? `ws://${window.location.hostname}:9001` : 'ws://localhost:9001'),
+  // Use relative path so Nginx in web container can proxy to backend (prod)
+  // In dev, Vite proxy will map '/api' to http://localhost:4000
+  BACKEND_URL:
+    (import.meta as any)?.env?.VITE_BACKEND_URL || '/api',
+  GEMINI_API_KEY: (import.meta as any)?.env?.VITE_GEMINI_API_KEY || '',
   REQUEST_TIMEOUT: 30000,                // 30 seconds timeout
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000,

@@ -14,6 +14,7 @@ import { MqttModule } from './modules/mqtt/mqtt.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { ProductModule } from './modules/product/product.module';
 import { VehicleModule } from './modules/vehicle/vehicle.module';
+import { DriverModule } from './modules/driver/driver.module';
 import { EventsModule } from './modules/events/events.module';
 
 import { User } from './modules/auth/entities/user.entity';
@@ -23,6 +24,7 @@ import { WeighReading } from './modules/weigh/entities/weigh-reading.entity';
 import { Customer } from './modules/customer/entities/customer.entity';
 import { Product } from './modules/product/entities/product.entity';
 import { Vehicle } from './modules/vehicle/entities/vehicle.entity';
+import { Driver } from './modules/driver/entities/driver.entity';
 import { Printer } from './modules/print/entities/printer.entity';
 import { PrintJob } from './modules/print/entities/print-job.entity';
 import { HealthModule } from './health/health.module';
@@ -48,6 +50,7 @@ import { HealthModule } from './health/health.module';
         Customer,
         Product,
         Vehicle,
+        Driver,
         Printer,
         PrintJob,
       ],
@@ -69,6 +72,7 @@ import { HealthModule } from './health/health.module';
     CustomerModule,
     ProductModule,
     VehicleModule,
+    DriverModule,
     HealthModule,
     EventsModule,
   ],

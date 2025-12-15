@@ -150,3 +150,7 @@ fake_scale_logs/
 *.bak
 *.swp
 *.swo
+
+# Docker volumes/data
+truck-weighing-station-app/data/
+truck-weighing-station-app/data/**

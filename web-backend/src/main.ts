@@ -7,9 +7,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Enable CORS
+  const corsOrigin = process.env.CORS_ORIGIN || '*';
+  // If using wildcard origin, do not enable credentials to satisfy CORS spec
+  const useCredentials = corsOrigin !== '*';
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || '*',
-    credentials: true,
+    origin: corsOrigin,
+    credentials: useCredentials,
   });
 
   // Global validation pipe

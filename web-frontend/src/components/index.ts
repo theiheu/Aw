@@ -9,6 +9,8 @@ export { DataManagementScreen } from './screens/DataManagementScreen';
 export { ReportsScreen } from './screens/ReportsScreen';
 export { SettingsScreen } from './screens/SettingsScreen';
 export { TicketSubmissionScreen } from './screens/TicketSubmissionScreen';
+export { VehicleManagementScreen } from './screens/VehicleManagementScreen';
+export { DriverManagementScreen } from './screens/DriverManagementScreen';
 
 // Modals
 export { PrintPreviewModal } from './modals/PrintPreviewModal';

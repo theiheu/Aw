@@ -21,6 +21,12 @@ const TicketSubmissionScreen = lazy(() =>
 const PrintPreviewModal = lazy(() =>
   import('./components/modals/PrintPreviewModal').then((m) => ({ default: m.PrintPreviewModal }))
 );
+const VehicleManagementScreen = lazy(() =>
+  import('./components/screens/VehicleManagementScreen').then((m) => ({ default: m.VehicleManagementScreen }))
+);
+const DriverManagementScreen = lazy(() =>
+  import('./components/screens/DriverManagementScreen').then((m) => ({ default: m.DriverManagementScreen }))
+);
 import {
   WeighTicket,
   User,
@@ -31,6 +37,7 @@ import {
   TicketSubmissionStatus,
   StationInfo,
   AppScreen,
+  Driver,
 } from './types';
 import { MOCK_TICKETS, MOCK_CUSTOMERS, MOCK_VEHICLES, MOCK_PRODUCTS } from './data/mockData';
 import { MqttProvider } from './contexts/MqttContext';
@@ -96,6 +103,9 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>(() =>
     loadFromLocalStorage(STORAGE_KEYS.PRODUCTS, MOCK_PRODUCTS, DATE_FIELDS.PRODUCTS)
   );
+  const [drivers, setDrivers] = useState<Driver[]>(() =>
+    loadFromLocalStorage(STORAGE_KEYS.DRIVERS, [], DATE_FIELDS.DRIVERS)
+  );
   const [stationInfo, setStationInfo] = useState<StationInfo>(() =>
     loadObjectFromLocalStorage(STORAGE_KEYS.STATION_INFO, DEFAULT_STATION_INFO)
   );
@@ -112,6 +122,9 @@ const App: React.FC = () => {
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.PRODUCTS, products);
   }, [products]);
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.DRIVERS, drivers);
+  }, [drivers]);
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.STATION_INFO, stationInfo);
   }, [stationInfo]);
@@ -168,6 +181,24 @@ const App: React.FC = () => {
   }, []);
   const deleteProduct = useCallback((id: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  // --- CRUD for Drivers ---
+  const addDriver = useCallback((driver: Omit<Driver, 'id'>) => {
+    const newDriver: Driver = {
+      ...driver,
+      id: `${ID_PREFIXES.DRIVER}${Date.now()}`,
+      totalTrips: (driver as any).totalTrips ?? 0,
+      totalWeightTransported: (driver as any).totalWeightTransported ?? 0,
+    };
+    setDrivers((prev) => [newDriver, ...prev]);
+    return newDriver;
+  }, []);
+  const updateDriver = useCallback((updated: Driver) => {
+    setDrivers((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+  }, []);
+  const deleteDriver = useCallback((id: string) => {
+    setDrivers((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
   // --- Handler for Station Info ---
@@ -346,6 +377,24 @@ const App: React.FC = () => {
             onAddProduct={addProduct}
             onUpdateProduct={updateProduct}
             onDeleteProduct={deleteProduct}
+          />
+        );
+      case SCREENS.VEHICLE_MANAGEMENT:
+        return (
+          <VehicleManagementScreen
+            vehicles={vehicles}
+            onAddVehicle={addVehicle}
+            onUpdateVehicle={updateVehicle}
+            onDeleteVehicle={deleteVehicle}
+          />
+        );
+      case SCREENS.DRIVER_MANAGEMENT:
+        return (
+          <DriverManagementScreen
+            drivers={drivers}
+            onAddDriver={addDriver}
+            onUpdateDriver={updateDriver}
+            onDeleteDriver={deleteDriver}
           />
         );
       default:

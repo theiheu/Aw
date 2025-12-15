@@ -480,8 +480,8 @@ export const ReportsScreen: React.FC<{
               </div>
             )}
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left text-industrial-text">
+            <div className="overflow-x-auto overflow-y-auto">
+              <table className="w-full min-w-[1100px] text-sm text-left text-industrial-text whitespace-nowrap">
                 <thead className="text-[10px] text-industrial-muted uppercase bg-slate-50 border-b border-industrial-border">
                   <tr>
                     <th scope="col" className="px-6 py-3 font-extrabold tracking-wider">

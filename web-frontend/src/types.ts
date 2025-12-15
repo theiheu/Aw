@@ -18,7 +18,7 @@ export enum SignatureStatus {
   SIGNED = 'Đã ký số',
 }
 
-export type AppScreen = 'main' | 'reports' | 'settings' | 'dataManagement' | 'ticketSubmission';
+export type AppScreen = 'main' | 'reports' | 'settings' | 'dataManagement' | 'ticketSubmission' | 'vehicleManagement' | 'driverManagement';
 
 export interface User {
   name: string;
@@ -84,4 +84,19 @@ export interface StationInfo {
   address: string;
   phone: string;
   defaultOperatorName?: string; // New field for default operator name
+}
+
+export interface Driver {
+  id: string;
+  name: string;
+  idNumber: string;
+  phone?: string;
+  address?: string;
+  licenseNumber?: string;
+  licenseExpireDate?: Date | string;
+  licenseType?: string;
+  totalTrips: number;
+  totalWeightTransported: number;
+  lastTripTime?: Date | string;
+  notes?: string;
 }

@@ -10,19 +10,19 @@ import {
   Query,
   ParseIntPipe,
 } from '@nestjs/common';
-import { VehicleService } from './vehicle.service';
-import { CreateVehicleDto } from './dto/create-vehicle.dto';
-import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { DriverService } from './driver.service';
+import { CreateDriverDto } from './dto/create-driver.dto';
+import { UpdateDriverDto } from './dto/update-driver.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller('vehicles')
+@Controller('drivers')
 @UseGuards(JwtAuthGuard)
-export class VehicleController {
-  constructor(private vehicleService: VehicleService) {}
+export class DriverController {
+  constructor(private driverService: DriverService) {}
 
   @Post()
-  create(@Body() createVehicleDto: CreateVehicleDto) {
-    return this.vehicleService.create(createVehicleDto);
+  create(@Body() createDriverDto: CreateDriverDto) {
+    return this.driverService.create(createDriverDto);
   }
 
   @Get()
@@ -31,30 +31,30 @@ export class VehicleController {
     @Query('take', new ParseIntPipe({ optional: true })) take: number = 20,
     @Query('search') search?: string,
   ) {
-    return this.vehicleService.findAll(skip, take, search);
+    return this.driverService.findAll(skip, take, search);
   }
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.vehicleService.findOne(id);
+    return this.driverService.findOne(id);
   }
 
   @Get(':id/stats')
   getStats(@Param('id', ParseIntPipe) id: number) {
-    return this.vehicleService.getVehicleStats(id);
+    return this.driverService.getDriverStats(id);
   }
 
   @Put(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updateVehicleDto: UpdateVehicleDto,
+    @Body() updateDriverDto: UpdateDriverDto,
   ) {
-    return this.vehicleService.update(id, updateVehicleDto);
+    return this.driverService.update(id, updateDriverDto);
   }
 
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
-    return this.vehicleService.remove(id);
+    return this.driverService.remove(id);
   }
 }
 

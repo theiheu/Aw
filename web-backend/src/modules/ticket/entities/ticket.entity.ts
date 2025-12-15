@@ -7,11 +7,13 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { Station } from '../../station/entities/station.entity';
 import { Customer } from '../../customer/entities/customer.entity';
 import { Product } from '../../product/entities/product.entity';
 import { Vehicle } from '../../vehicle/entities/vehicle.entity';
+import { Driver } from '../../driver/entities/driver.entity';
 import { User } from '../../auth/entities/user.entity';
 import { WeighReading } from '../../weigh/entities/weigh-reading.entity';
 
@@ -27,6 +29,12 @@ export enum TicketDirection {
 }
 
 @Entity('tickets')
+@Index(['code'])
+@Index(['stationId'])
+@Index(['vehicleId'])
+@Index(['driverId'])
+@Index(['createdAt'])
+@Index(['status'])
 export class Ticket {
   @PrimaryGeneratedColumn('increment')
   id: number;
@@ -48,6 +56,9 @@ export class Ticket {
 
   @Column({ type: 'int', nullable: true })
   vehicleId: number;
+
+  @Column({ type: 'int', nullable: true })
+  driverId: number;
 
   @Column({ type: 'int', nullable: true })
   weighInWeight: number; // kg
@@ -102,6 +113,10 @@ export class Ticket {
   @ManyToOne(() => Vehicle, (vehicle) => vehicle.tickets, { nullable: true })
   @JoinColumn({ name: 'vehicleId' })
   vehicle: Vehicle;
+
+  @ManyToOne(() => Driver, (driver) => driver.tickets, { nullable: true })
+  @JoinColumn({ name: 'driverId' })
+  driver: Driver;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'createdBy' })

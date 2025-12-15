@@ -23,7 +23,8 @@
 - 📱 **Giao diện responsive** - Tối ưu cho desktop và mobile
 - 🔗 **Hỗ trợ MQTT & WebSocket** - Kết nối real-time với thiết bị cân
 - 🤖 **Tích hợp Gemini AI** - Hỗ trợ phân tích dữ liệu thông minh
-- [object Object]** - In vé cân và báo cáo chi[object Object]ản lý danh sách vé cân** - Theo dõi lịch sử cân hàng
+- 🖨️ In vé cân và báo cáo chi tiết
+- 🗂️ Quản lý danh sách vé cân – Theo dõi lịch sử cân hàng
 - ⚙️ **Cấu hình linh hoạt** - Tùy chỉnh thông tin trạm cân
 
 ---

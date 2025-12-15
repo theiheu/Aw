@@ -30,6 +30,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeScreen, setActiveScr
     { screen: 'main' as AppScreen, label: 'Cân', icon: <ScaleIcon className="w-6 h-6" /> },
     { screen: 'ticketSubmission' as AppScreen, label: 'Phiếu', icon: <ListIcon className="w-6 h-6" /> },
     { screen: 'dataManagement' as AppScreen, label: 'Dữ liệu', icon: <DatabaseIcon className="w-6 h-6" /> },
+    { screen: 'vehicleManagement' as AppScreen, label: 'Xe', icon: <DatabaseIcon className="w-6 h-6" /> },
+    { screen: 'driverManagement' as AppScreen, label: 'Tài xế', icon: <DatabaseIcon className="w-6 h-6" /> },
     { screen: 'reports' as AppScreen, label: 'Báo cáo', icon: <BarChartIcon className="w-6 h-6" /> },
     { screen: 'settings' as AppScreen, label: 'Cài đặt', icon: <SettingsIcon className="w-6 h-6" /> },
   ];
