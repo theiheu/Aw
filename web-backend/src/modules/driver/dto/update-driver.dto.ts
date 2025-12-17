@@ -8,3 +8,4 @@ export class UpdateDriverDto extends PartialType(CreateDriverDto) {
   isActive?: boolean;
 }
 
+

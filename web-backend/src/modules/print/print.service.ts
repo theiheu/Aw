@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Printer, PrinterType } from './entities/printer.entity';
@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
 import { Response } from 'express';
+import { TicketService } from '../ticket/ticket.service';
 
 interface CreatePrintJobParams {
   machineId: string;
@@ -33,6 +34,7 @@ export class PrintService implements OnModuleInit {
     @InjectRepository(PrintJob)
     private printJobsRepository: Repository<PrintJob>,
     private mqttService: MqttService,
+    private ticketService: TicketService,
   ) {}
 
   onModuleInit() {
@@ -79,6 +81,36 @@ export class PrintService implements OnModuleInit {
 
   async getPrinters() {
     return this.printersRepository.find({ where: { isActive: true } });
+  }
+
+  // Backward-compatible method used by PrintController
+  async printTicket(ticketId: number, stationId: number, copies = 1) {
+    const ticket = await this.ticketService.findOne(ticketId);
+    if (!ticket) throw new BadRequestException('Ticket not found');
+    if (ticket.stationId !== stationId) {
+      // Allow, but warn by throwing error to be explicit
+      throw new BadRequestException('Ticket does not belong to the provided station');
+    }
+    if (!ticket.station || !ticket.station.machineId) {
+      throw new BadRequestException('Station or machineId is not configured for this ticket');
+    }
+
+    const payload = {
+      ticketId: ticket.id,
+      code: ticket.code,
+      plateNumber: ticket.plateNumber,
+      weighInWeight: ticket.weighInWeight,
+      weighOutWeight: ticket.weighOutWeight,
+      netWeight: ticket.netWeight,
+      direction: ticket.direction,
+    } as Record<string, any>;
+
+    return this.createPrintJobAndDispatch({
+      machineId: ticket.station.machineId,
+      copies: copies || 1,
+      printerName: ticket.station.defaultPrinterName || undefined,
+      payload,
+    });
   }
 
   // New unified API for creating and dispatching a print job

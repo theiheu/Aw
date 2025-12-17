@@ -48,11 +48,13 @@ export class PrintJobsController {
   async downloadPdf(@Param('id') id: string, @Res() res: Response) {
     const getter = this.printService.getPdfStreamByJobKey(id);
     if (!getter) {
-      return res.status(404).send('Not found');
+      res.status(404).send('Not found');
+      return; // ensure all code paths return (noImplicitReturns)
     }
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${id}.pdf"`);
     getter(res);
+    return; // ensure all code paths return (noImplicitReturns)
   }
 
   @Get(':id')
@@ -60,6 +62,7 @@ export class PrintJobsController {
     return this.printService.getJobStatus(id);
   }
 }
+
 
 
 
