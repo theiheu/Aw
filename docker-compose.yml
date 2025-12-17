@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: weighpass
       POSTGRES_DB: weighing
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,10 +22,14 @@ services:
     ports:
       - "1883:1883"
       - "9001:9001"
-    # Mount the entire config directory so both mosquitto.conf and passwd are correctly mapped as files
     volumes:
-      - ./truck-weighing-station-app/config:/mosquitto/config:ro
+      - ./mosquitto-config:/mosquitto/config:ro
       - ./truck-weighing-station-app/data/mosquitto:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -t healthcheck -m ok -r >/dev/null 2>&1 && mosquitto_sub -h localhost -t healthcheck -C 1 -W 2 2>/dev/null | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: ./web-backend
@@ -40,8 +44,12 @@ services:
       JWT_SECRET: your-secret-key
       NODE_ENV: production
       CORS_ORIGIN: "*"
+      MQTT_HOST: mqtt
+      MQTT_PORT: 1883
     depends_on:
       db:
+        condition: service_healthy
+      mqtt:
         condition: service_healthy
     ports:
       - "4000:4000"
