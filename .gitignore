@@ -158,3 +158,4 @@ truck-weighing-station-app/data/**
 # Project runtime data (avoid permission issues)
 infra/mosquitto/data/
 weighing-frontend/data/
+infra/mosquitto/log/
