@@ -1,0 +1,8 @@
+# Docker build context ignores
+.git
+node_modules
+dist
+build
+infra/mosquitto/data
+weighing-frontend/data
+infra/mosquitto/log

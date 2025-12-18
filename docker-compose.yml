@@ -23,8 +23,8 @@ services:
       - "1883:1883"
       - "9001:9001"
     volumes:
-      - ./mosquitto-config:/mosquitto/config:ro
-      - ./truck-weighing-station-app/data/mosquitto:/mosquitto/data
+      - ./infra/mosquitto/config:/mosquitto/config:ro
+      - ./infra/mosquitto/data:/mosquitto/data
     healthcheck:
       test: ["CMD-SHELL", "mosquitto_pub -h localhost -t healthcheck -m ok -r >/dev/null 2>&1 && mosquitto_sub -h localhost -t healthcheck -C 1 -W 2 2>/dev/null | grep -q ok"]
       interval: 10s
@@ -32,7 +32,7 @@ services:
       retries: 5
 
   backend:
-    build: ./web-backend
+    build: ./apps/backend
     container_name: weigh-backend
     environment:
       DB_HOST: db
@@ -56,7 +56,7 @@ services:
 
   frontend:
     build:
-      context: ./web-frontend
+      context: ./apps/frontend
       dockerfile: Dockerfile.web
     container_name: weigh-frontend
     depends_on:

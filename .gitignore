@@ -154,3 +154,7 @@ fake_scale_logs/
 # Docker volumes/data
 truck-weighing-station-app/data/
 truck-weighing-station-app/data/**
+
+# Project runtime data (avoid permission issues)
+infra/mosquitto/data/
+weighing-frontend/data/
