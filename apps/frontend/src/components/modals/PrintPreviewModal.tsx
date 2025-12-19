@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { WeighTicket, StationInfo } from '../../types';
 import { PrintableTicket } from '../common/PrintableTicket';
-import { useMqtt } from '../../hooks/useMqtt';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 import {
   ZoomInIcon,
   ZoomOutIcon,
@@ -53,7 +53,8 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   stationInfo,
   onUpdateTicket,
 }) => {
-  const { publish, status, machineId } = useMqtt();
+  const { status } = useWebSocket();
+  const machineId = (typeof window !== 'undefined' && localStorage.getItem('machineId')) || 'weigh1';
   const [zoom, setZoom] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);

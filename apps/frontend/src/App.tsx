@@ -40,7 +40,7 @@ import {
   Driver,
 } from './types';
 import { MOCK_TICKETS, MOCK_CUSTOMERS, MOCK_VEHICLES, MOCK_PRODUCTS } from './data/mockData';
-import { MqttProvider } from './contexts/MqttContext';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 import {
   loadFromLocalStorage,
   loadObjectFromLocalStorage,
@@ -430,7 +430,7 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <MqttProvider>
+    <WebSocketProvider>
       <div className="h-screen w-screen font-sans text-brand-secondary bg-industrial-bg flex flex-col overflow-hidden">
         <div className="flex flex-1 overflow-hidden">
           <SideNav activeScreen={activeScreen} setActiveScreen={safeSetActiveScreen} isUserMode={isUserMode} />
@@ -455,7 +455,7 @@ const App: React.FC = () => {
         )}
       </div>
       <ToastContainer />
-    </MqttProvider>
+    </WebSocketProvider>
   );
 };
 

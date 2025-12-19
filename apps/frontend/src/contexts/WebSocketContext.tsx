@@ -18,9 +18,14 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const ws = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const serverUrl = localStorage.getItem('weighingServerUrl');
+    let serverUrl = localStorage.getItem('weighingServerUrl') || '';
 
-    if (!serverUrl || !serverUrl.startsWith('ws://')) {
+    if (!serverUrl && typeof window !== 'undefined') {
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      serverUrl = `${proto}://${window.location.host}/ws/weight`;
+    }
+
+    if (!serverUrl || !/^wss?:\/\//i.test(serverUrl)) {
       if (status !== 'disconnected') {
         setStatus('disconnected');
         setWeight(0);

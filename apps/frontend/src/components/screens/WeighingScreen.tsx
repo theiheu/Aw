@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useMqtt } from '../../hooks/useMqtt';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 import { WeighTicket, Vehicle, Customer, Product, TicketStatus, User, StationInfo } from '../../types';
 import {
   TruckIcon,
@@ -534,7 +534,7 @@ const FilterControls: React.FC<{
 ));
 
 export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
-  const { weight, status: connectionStatus } = useMqtt();
+  const { weight, status: connectionStatus } = useWebSocket();
   const isMobile = useMediaQuery('(max-width: 1023px)');
 
   const [selectedTicket, setSelectedTicket] = useState<WeighTicket | null>(null);

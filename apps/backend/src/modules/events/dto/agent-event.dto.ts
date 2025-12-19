@@ -27,6 +27,11 @@ export class AgentEventDto {
   @IsString()
   timestamp?: string;
 
+  // allow agent's internal retry counter, ignored by server logic
+  @IsOptional()
+  @IsNumber()
+  attempt?: number;
+
   @IsOptional()
   @IsString()
   raw?: string;
