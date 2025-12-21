@@ -1,4 +1,5 @@
 import React from 'react';
+import './PrintableTicket.css';
 import { WeighTicket, StationInfo } from '../../types';
 
 interface PrintableTicketProps {
@@ -37,13 +38,13 @@ export const PrintableTicket: React.FC<PrintableTicketProps> = ({ ticket, statio
     >
       {/* A5 Landscape exact size in px for 96dpi capture */}
       <div
-        className="bg-white relative mx-auto text-slate-900 flex flex-col"
-        style={{ width: '794px', height: '560px', padding: '24px' }}
+        className="printable-ticket-container bg-white relative mx-auto text-slate-900 flex flex-col"
+        style={{ width: '794px', height: '560px' }}
       >
         {/* Outer Border */}
-        <div className="w-full h-full border border-slate-700 flex flex-col p-6 box-border rounded bg-white relative">
+        <div className="printable-ticket-border w-full h-full border border-slate-700 flex flex-col p-6 box-border rounded bg-white relative">
           {/* Header line with company info and STT */}
-          <div className="flex items-start justify-between mb-1">
+          <div className="printable-ticket-header flex items-start justify-between mb-1">
             <div className="text-[13px] leading-snug">
               <div className="font-bold uppercase">{stationInfo.name || 'CÔNG TY/ĐƠN VỊ'}</div>
               <div>
@@ -60,12 +61,12 @@ export const PrintableTicket: React.FC<PrintableTicketProps> = ({ ticket, statio
           </div>
 
           {/* Title centered */}
-          <div className="text-center my-2">
+          <div className="printable-ticket-title text-center my-2">
             <div className="text-3xl font-extrabold uppercase tracking-wide">PHIẾU CÂN XE</div>
           </div>
 
           {/* Two column info like sample */}
-          <div className="grid grid-cols-2 gap-10 mt-1 text-[15px]">
+          <div className="printable-ticket-info grid grid-cols-2 gap-10 mt-1 text-[15px]">
             <div className="space-y-2">
               <Row label="Hàng hóa" value={ticket.product?.name} strong uppercase />
               <Row label="Khách hàng" value={ticket.customer?.name} strong uppercase />
@@ -86,7 +87,7 @@ export const PrintableTicket: React.FC<PrintableTicketProps> = ({ ticket, statio
           </div>
 
           {/* Signatures area (four columns) */}
-          <div className="grid grid-cols-4 gap-6 mt-6 pt-4">
+          <div className="printable-ticket-signatures grid grid-cols-4 gap-6 mt-6 pt-4">
             <SignatureCol title="Bảo vệ" />
             {/* Không hiển thị tên tài xế */}
             <SignatureCol title="Tài xế" />

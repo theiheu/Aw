@@ -262,7 +262,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-[100] p-0 sm:p-4 md:p-8">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-[100] p-0 sm:p-4 md:p-8 print:hidden">
       <div
         className="bg-industrial-bg sm:rounded-lg shadow-2xl w-full max-w-5xl h-full sm:h-[90vh] flex flex-col relative"
         onClick={(e) => e.stopPropagation()}

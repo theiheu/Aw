@@ -1,0 +1,73 @@
+/* PrintableTicket.css */
+
+@media print {
+  @page {
+    size: A5 landscape;
+    margin: 0;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #printable-ticket-root {
+    width: 210mm;
+    height: 148mm;
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+  }
+
+  .printable-ticket-container {
+    width: 100%;
+    height: 100%;
+    padding: 10mm;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .printable-ticket-border {
+    width: 100%;
+    height: 100%;
+    border: 1px solid #333;
+    padding: 10mm;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .printable-ticket-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5mm;
+  }
+
+  .printable-ticket-title {
+    text-align: center;
+    margin: 5mm 0;
+  }
+
+  .printable-ticket-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20mm;
+    margin-top: 5mm;
+  }
+
+  .printable-ticket-signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10mm;
+    margin-top: auto;
+    padding-top: 10mm;
+  }
+
+  .printable-ticket-signature-col {
+    text-align: center;
+  }
+}
+
+
