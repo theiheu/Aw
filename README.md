@@ -1,148 +1,109 @@
-# Truck Weighing Station — Monorepo
+# Hệ thống Trạm cân Xe tải
 
-Repo hợp nhất các thành phần: Backend (NestJS), Frontend (Vite/React), Weigh Agent (Python) và hạ tầng (MQTT). Bố cục đã được tinh gọn, nhất quán theo chuẩn apps/ và infra/ để dễ phát triển, triển khai.
+Hệ thống trạm cân xe tải hoàn chỉnh, bao gồm:
 
-## Cấu trúc thư mục
+- **Backend (NestJS)**: API, WebSocket, quản lý dữ liệu.
+- **Frontend (React/Vite)**: Giao diện người dùng, tạo phiếu cân, báo cáo.
+- **Agent (Python)**: Đọc dữ liệu từ cân điện tử (COM port) và đẩy về backend.
+- **Database (PostgreSQL)**: Lưu trữ dữ liệu phiếu cân, khách hàng, xe, sản phẩm.
+- **MQTT Broker (Mosquitto)**: (Tùy chọn) Hỗ trợ các kịch bản IoT khác.
 
-```
-.
-├─ apps/
-│  ├─ backend/      # NestJS + TypeORM (PostgreSQL)
-│  ├─ frontend/     # Vite + React, build thành image Nginx
-│  └─ agent/        # Python Weigh Agent (đọc serial, MQTT, in PDF)
-│
-├─ infra/
-│  └─ mosquitto/
-│     ├─ config/    # mosquitto.conf (đã mở 1883 & 9001)
-│     └─ data/      # volume dữ liệu/persistence cho broker
-│
-├─ docker-compose.yml
-└─ (các file hướng dẫn/ghi chú khác)
-```
+## Kiến trúc
 
-Điểm khác so với trước:
-- Di chuyển web-backend → apps/backend
-- Di chuyển web-frontend → apps/frontend
-- Di chuyển weigh-agent → apps/agent
-- Cấu hình MQTT chuyển sang infra/mosquitto/config/mosquitto.conf
+Hệ thống hoạt động theo kiến trúc Client-Server với luồng dữ liệu như sau:
 
-## Yêu cầu
-- Docker & Docker Compose
-- Node.js LTS (cho dev backend/frontend)
-- Python 3.10+ (cho dev agent)
-- PostgreSQL (nếu không dùng container DB đi kèm)
+1. **Agent (PC nối cân)**: Đọc dữ liệu từ cân qua cổng COM (ví dụ: COM3), sau đó gửi dữ liệu này tới Backend qua HTTP POST.
+2. **Backend**: Nhận dữ liệu từ Agent, sau đó phát (broadcast) dữ liệu này tới tất cả các client (trình duyệt) đang kết nối qua WebSocket.
+3. **Frontend**: Nhận dữ liệu cân trực tiếp từ WebSocket và hiển thị cho người dùng. Người dùng có thể tạo phiếu cân, quản lý dữ liệu, in ấn và xem báo cáo.
 
-## Dịch vụ & Port mặc định
-- Frontend (Nginx): http://localhost (port 80)
-- Backend (NestJS): http://localhost:4000
-- PostgreSQL: host 5433 (map về 5432 trong container)
-- MQTT (Mosquitto): 1883 (TCP), 9001 (WebSocket)
+  <!-- Thay thế bằng link ảnh kiến trúc của bạn -->
 
-Lý do DB dùng 5433 ở host: tránh đụng với PostgreSQL cài sẵn trên máy.
+### Ưu điểm của kiến trúc này:
 
-## Chạy nhanh với Docker
+- **Đơn giản hóa Frontend**: Frontend không cần kết nối trực tiếp tới MQTT broker, giảm thiểu lỗi cấu hình phía người dùng (port, path, TLS).
+- **Tập trung xử lý tại Backend**: Dễ dàng quản lý, lưu trữ, và mở rộng các quy tắc nghiệp vụ.
+- **Bảo mật**: Dễ dàng bảo vệ API endpoint của backend hơn là bảo vệ MQTT broker.
 
-1) Build & up:
-```
+## Yêu cầu hệ thống
+
+- **Docker** và **Docker Compose**: Để chạy backend, frontend, database.
+- **Python 3.8+** và **pip**: Để chạy Agent trên máy tính nối với cân.
+- **Cân điện tử** có cổng COM và khả năng gửi dữ liệu qua cổng này.
+
+## Hướng dẫn cài đặt và chạy
+
+### 1. Khởi động Backend và Frontend
+
+Trên máy chủ của bạn (có thể là máy tính local hoặc server), chạy lệnh sau tại thư mục gốc của dự án:
+
+```bash
 docker compose up -d --build
 ```
 
-2) Kiểm tra tình trạng:
-```
-docker compose ps
+Lệnh này sẽ build và khởi động các service sau:
 
-docker compose logs -f backend | cat
+- `weigh-backend`: Backend API, lắng nghe trên port `4000`.
+- `weigh-frontend`: Giao diện web, lắng nghe trên port `80`.
+- `weigh-db`: Cơ sở dữ liệu PostgreSQL, lắng nghe trên port `5433`.
+- `weigh-mqtt`: MQTT Broker (tùy chọn), lắng nghe trên port `1883` (TCP) và `9001` (WebSocket).
 
-docker compose logs -f mqtt | cat
-```
+Sau khi khởi động, bạn có thể truy cập giao diện web tại `http://<IP_máy_chủ>`.
 
-3) Kiểm tra backend health:
-- http://localhost:4000/api/health → { "status": "ok" }
+### 2. Cấu hình và chạy Agent
 
-4) Truy cập web:
-- http://localhost
+Trên máy tính được kết nối trực tiếp với cân điện tử qua cổng COM:
 
-MQTT broker đã bật sẵn 1883 (TCP) và 9001 (WebSocket). Healthcheck của broker thực hiện publish/subscribe nội bộ để đảm bảo sẵn sàng trước khi backend khởi chạy.
+**a. Cài đặt thư viện cần thiết:**
 
-## Cấu hình Backend (tối thiểu)
-Backend đọc biến môi trường từ docker-compose:
-- DB_HOST=db
-- DB_PORT=5432
-- DB_USER=weighuser
-- DB_PASSWORD=weighpass
-- DB_NAME=weighing
-- JWT_SECRET=your-secret-key
-- CORS_ORIGIN=*
-- MQTT_HOST=mqtt
-- MQTT_PORT=1883
-
-Dev (ngoài Docker): tạo file .env trong apps/backend (tham khảo docker-compose) và chạy:
-```
-cd apps/backend
-npm ci
-npm run start:dev
+```bash
+pip install -r apps/agent/requirements.txt
 ```
 
-## Cấu hình Frontend (dev)
+**b. Cấu hình Agent:**
+
+Mở file `apps/agent/config.json` và chỉnh sửa các thông số sau:
+
+- **Kết nối cân:**
+  - `simulateScale`: `false` (để đọc từ cân thật).
+  - `serialPort`: Cổng COM của cân (ví dụ: `"COM3"`).
+  - `baudRate`, `bytesize`, `parity`, `stopbits`: Cấu hình theo thông số của cân.
+
+- **Kết nối Backend:**
+  - `backendEnabled`: `true`.
+  - `backendUrl`: URL của backend (ví dụ: `"http://<IP_máy_chủ_backend>:4000"`).
+
+**c. Chạy Agent:**
+
+```bash
+python apps/agent/weigh_agent_cli.py --config apps/agent/config.json
 ```
-cd apps/frontend
-npm ci
-npm run dev
-# mở http://localhost:5173
-```
-Trong màn hình Cài đặt của app:
-- Kết nối PC Cân (MQTT WS):
-  - Giao thức: ws
-  - Host: localhost (hoặc IP broker)
-  - Port: 9001
-  - Path: /
-  - Machine ID: ví dụ weigh1
-- Máy in: Print Secret phải khớp với agent
 
-## Weigh Agent (PC trạm cân)
-Agent không container hoá để sử dụng thiết bị serial và máy in trên PC.
+Agent sẽ bắt đầu đọc dữ liệu từ cân và đẩy về backend.
 
-Thiết lập nhanh (dev):
-```
-cd apps/agent
-python3 -m venv .venv
-# Linux/macOS
-source .venv/bin/activate
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
+### 3. Cấu hình Frontend
 
-pip install -r requirements.txt
-python3 weigh_agent_gui.py   # giao diện đồ hoạ
-# hoặc: python3 weigh_agent_cli.py --simulate
-```
-Cấu hình tối thiểu (GUI hoặc config.json):
-- machineId: weigh1
-- mqttHost: 127.0.0.1 (nếu cùng máy broker), mqttPort: 1883
-- printSecret: trùng với cấu hình trong Web
-- Cài đặt serial tương ứng với cân thật hoặc bật simulate
+Thông thường, bạn không cần cấu hình gì thêm. Giao diện web sẽ tự động kết nối WebSocket tới backend.
 
-## In phiếu qua backend (tùy chọn)
-- Tạo print job: POST /api/print-jobs
-- Hoặc in theo ticket: POST /api/print/tickets/:ticketId
-- Kiểm tra job: GET /api/print-jobs/:id
-- Tải PDF: GET /api/print-jobs/:id/pdf
+Nếu bạn cần thay đổi URL của WebSocket, vào **Cài đặt** -> **Kết nối Backend** và nhập URL của WebSocket, ví dụ: `ws://<IP_máy_chủ_backend>:4000/ws/weight`.
 
-Backend sẽ render PDF (Gotenberg) và publish job lên MQTT topic weigh/{machineId}/print/jobs. Agent tải PDF và in, sau đó phản hồi trạng thái.
+## Sử dụng
 
-Lưu ý: Nếu dùng render PDF qua Gotenberg, cần bổ sung service Gotenberg trong docker-compose (image gotenberg/gotenberg:8) và cấu hình biến GOTENBERG_URL + PUBLIC_BASE_URL cho backend.
-
-## MQTT Topics chính (mặc định baseTopic = weigh)
-- Publish cân: weigh/{machineId}/reading, weigh/{machineId}/reading/json
-- Trạng thái: weigh/{machineId}/status (ONLINE, OFFLINE, PRINT_OK, PRINT_ERROR)
-- Lệnh in (từ backend/web tới agent): weigh/{machineId}/print/jobs
-- ACK in (từ agent về backend): weigh/{machineId}/print/acks
+- **Màn hình cân**: Hiển thị số cân trực tiếp, tạo phiếu cân lần 1, lần 2, hoặc cân dịch vụ.
+- **Báo cáo**: Xem lại lịch sử các phiếu cân, lọc theo ngày, khách hàng, sản phẩm.
+- **Quản lý dữ liệu**: Thêm, sửa, xóa thông tin khách hàng, xe, sản phẩm.
+- **Cài đặt**: Cấu hình thông tin trạm cân, kết nối, máy in.
 
 ## Troubleshooting
-- Port xung đột: sửa map trong docker-compose.yml
-- MQTT unhealthy: xem logs của mqtt; healthcheck cần vài giây sau khởi động
-- Frontend không kết nối MQTT WS: xác nhận WS 9001 mở, đúng host/port/path
-- Agent không in ở Linux: cần cài cups-bsd, kiểm tra máy in bằng `lpstat -p -d`
-- Print Secret sai → Agent từ chối in
 
-## License
-MIT © Your Team
+- **Không thấy số cân trên web?**
+  - Kiểm tra log của Agent xem có lỗi đọc cổng COM hoặc gửi HTTP không.
+  - Kiểm tra log của Backend (`docker compose logs -f weigh-backend`) xem có nhận được request từ Agent không.
+  - Kiểm tra kết nối WebSocket trên trình duyệt (F12 -> Network -> WS).
+  - Đảm bảo firewall trên máy chủ backend cho phép kết nối tới port `4000`.
+
+- **Agent báo lỗi `400 Bad Request`?**
+  - Đảm bảo backend đã được build lại với DTO mới nhất (`docker compose up -d --build weigh-backend`).
+
+- **Lỗi kết nối từ máy khác trong mạng LAN?**
+  - Đảm bảo backend đang listen trên `0.0.0.0` (đã cấu hình mặc định trong `main.ts`).
+  - Đảm bảo `backendUrl` trong `config.json` của Agent là IP LAN của máy chủ backend, không phải `localhost`.
