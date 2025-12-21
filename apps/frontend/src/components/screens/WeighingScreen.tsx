@@ -466,6 +466,7 @@ const TicketRow: React.FC<{
         <div className="flex flex-col">
           <span className="text-xs text-industrial-muted font-medium">{t.ticketNo}</span>
           <span className="text-[10px] text-slate-400 mt-0.5">{t.customer.name}</span>
+          <span className="text-[10px] text-emerald-600 font-medium mt-0.5">📦 {t.product.name}</span>
         </div>
         <div className="text-[10px] text-industrial-muted font-medium">
           {new Date(t.weighInTime).toLocaleString('vi-VN', {
@@ -549,7 +550,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     props.stationInfo.defaultOperatorName || props.currentUser.name
   );
   const [notes, setNotes] = useState('');
-  const [capturedWeight, setCapturedWeight] = useState<number | null>(null);
 
   // States for Manual Weight Editing
   const [editGross, setEditGross] = useState<number>(0);
@@ -680,14 +680,8 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     (ticket: WeighTicket) => {
       setSelectedTicket(ticket);
       if (isMobile) setActiveMobileTab('weigh');
-      if (ticket.status === TicketStatus.PENDING_SECOND_WEIGH) {
-        return;
-      }
-      if (ticket.status === TicketStatus.COMPLETED || ticket.status === TicketStatus.SINGLE_WEIGH) {
-        props.onPrintRequest(ticket);
-      }
     },
-    [isMobile, props.onPrintRequest]
+    [isMobile]
   );
 
   const navigateTicket = useCallback(
@@ -737,8 +731,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
   // --- Handlers for New/Process Weighing ---
   const handleSubmit = useCallback(
     (type: 'first' | 'single' | 'second') => {
-      const w = capturedWeight ?? weight;
-      if (connectionStatus !== 'connected' || w <= 0) {
+      if (connectionStatus !== 'connected' || weight <= 0) {
         alert('Chưa nhận được dữ liệu hợp lệ từ trạm cân. Vui lòng kiểm tra kết nối.');
         return;
       }
@@ -753,8 +746,8 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
           driverName: driver,
           operatorName: operatorName,
           notes: notes,
-          tareWeight: w,
-          netWeight: Math.abs(selectedTicket.grossWeight - w),
+          tareWeight: weight,
+          netWeight: Math.abs(selectedTicket.grossWeight - weight),
           weighOutTime: new Date(),
           status: TicketStatus.COMPLETED,
         };
@@ -766,12 +759,11 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
           productName,
           driverName: driver,
           operatorName,
-          weight: w,
+          weight: weight,
           type,
           notes,
         });
       }
-      setCapturedWeight(null);
       setSelectedTicket(null);
     },
     [
@@ -789,14 +781,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
       props.updateTicket,
     ]
   );
-
-  const handleCaptureWeight = () => {
-    if (connectionStatus !== 'connected' || weight <= 0) {
-      alert('Chưa nhận được dữ liệu hợp lệ từ trạm cân. Vui lòng kiểm tra kết nối.');
-      return;
-    }
-    setCapturedWeight(weight);
-  };
 
   const handleEditToggle = () => {
     setIsEditing(true);
@@ -865,7 +849,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     setNotes('');
     setEditGross(0);
     setEditTare(0);
-    setCapturedWeight(null);
     setOperatorName(props.stationInfo.defaultOperatorName || props.currentUser.name);
     if (isMobile) setActiveMobileTab('weigh');
   }, [isMobile, props.currentUser.name, props.stationInfo.defaultOperatorName]);
@@ -949,19 +932,12 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
 
             <button
               onClick={handleEditToggle}
-              className={`${BtnClass} bg-white text-brand-secondary border-industrial-border hover:bg-slate-50 col-span-1`}
+              className={`${BtnClass} bg-white text-brand-secondary border-industrial-border hover:bg-slate-50 col-span-2`}
             >
               <div className="flex items-center gap-2">
                 <EditIcon className="w-4 h-4" />
                 <span className="font-bold uppercase text-sm">Sửa Thông Tin</span>
               </div>
-            </button>
-
-            <button
-              onClick={() => setSelectedTicket(null)}
-              className={`${BtnClass} bg-white text-brand-danger border-industrial-border hover:bg-red-50 col-span-1`}
-            >
-              <span className="font-bold uppercase text-sm">Quay lại</span>
             </button>
           </div>
         );
@@ -985,12 +961,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                 <EditIcon className="w-5 h-5" />
                 <span className="font-bold uppercase">Sửa Phiếu</span>
               </div>
-            </button>
-            <button
-              onClick={handleCreateNewTicket}
-              className={`${BtnClass} bg-white text-brand-primary border-brand-primary hover:bg-blue-50 col-span-2`}
-            >
-              <span className="font-bold uppercase">Tạo Phiếu Mới</span>
             </button>
           </div>
         );
@@ -1191,15 +1161,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                 {renderActionButtons()}
               </div>
 
-              <div className="mt-4 border-t border-industrial-border bg-white">
-                <button
-                  onClick={handleCreateNewTicket}
-                  className="w-full px-4 py-3 text-base font-bold rounded-lg border-0 bg-brand-success text-white hover:bg-emerald-600 active:scale-95 transition-all shadow-md hover:shadow-lg"
-                >
-                  Tạo phiếu mới
-                </button>
-              </div>
-
             </>
           )}
 
@@ -1263,31 +1224,17 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
         {/* Scale Header */}
         <div className="p-6 bg-slate-50 border-b border-industrial-border shrink-0">
           <DigitalDisplay weight={weight} status={connectionStatus} isMobile={false} />
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+          {(selectedTicket || formMode !== 'new') && (
+            <div className="mt-4">
               <button
-                onClick={handleCaptureWeight}
-                disabled={connectionStatus !== 'connected' || weight <= 0}
-                className="px-3 py-1.5 text-sm font-bold rounded border border-industrial-border bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleCreateNewTicket}
+                className="w-full px-4 py-3 text-base font-bold rounded-lg border-2 border-brand-primary bg-white text-brand-primary hover:bg-blue-50 active:scale-95 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
               >
-                Nhận dữ liệu
+                <span className="text-xl">+</span>
+                <span>Tạo phiếu mới</span>
               </button>
-              {capturedWeight != null && (
-                <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">
-                  Đã nhận: {capturedWeight.toLocaleString('vi-VN')} kg
-                </span>
-              )}
-              {capturedWeight != null && (
-                <button
-                  onClick={() => setCapturedWeight(null)}
-                  className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-50"
-                >
-                  Xoá
-                </button>
-              )}
             </div>
-          </div>
-
+          )}
         </div>
 
         {/* Operation Form - Scrollable Area */}
@@ -1299,31 +1246,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
             </div>
           )}
 
-          {selectedTicket &&
-            selectedTicket.status === TicketStatus.PENDING_SECOND_WEIGH &&
-            !isEditing && (
-              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex justify-between items-center animate-in slide-in-from-top-2">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-100 rounded-full text-amber-600">
-                    <HourglassIcon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-amber-800 uppercase tracking-wider">
-                      Đang xử lý cân lần 2
-                    </div>
-                    <div className="text-lg font-bold text-amber-900">
-                      {selectedTicket.vehicle.plateNumber}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedTicket(null)}
-                  className="px-3 py-1.5 bg-white border border-amber-200 rounded hover:bg-amber-100 text-xs font-bold text-amber-800"
-                >
-                  Bỏ chọn
-                </button>
-              </div>
-            )}
 
           {/* Live preview for second weigh (desktop) */}
           {formMode === 'second_weigh' && selectedTicket && (

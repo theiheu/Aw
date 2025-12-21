@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:15
+    container_name: weigh-db
+    environment:
+      POSTGRES_USER: weighuser
+      POSTGRES_PASSWORD: weighpass
+      POSTGRES_DB: weighing
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weighuser -d weighing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: weigh-mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./infra/mosquitto/config:/mosquitto/config:ro
+      - mosquitto_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -t healthcheck -m ok -r >/dev/null 2>&1 && mosquitto_sub -h localhost -t healthcheck -C 1 -W 2 2>/dev/null | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./apps/backend
+    container_name: weigh-backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: weighuser
+      DB_PASSWORD: weighpass
+      DB_NAME: weighing
+      DB_SYNCHRONIZE: "false"
+      JWT_SECRET: your-secret-key
+      NODE_ENV: development
+      CORS_ORIGIN: "*"
+      MQTT_HOST: mqtt
+      MQTT_PORT: 1883
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./apps/backend/src:/app/src:ro
+      - ./apps/backend/dist:/app/dist
+    command: npm run start:dev
+
+volumes:
+  pgdata:
+  mosquitto_data:
+
