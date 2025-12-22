@@ -156,7 +156,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           machineId,
           idempotencyKey,
           copies: 1,
-          ticketId: parseInt(String(ticket.ticketNo || ticket.id), 10) || undefined,
+          ticketId: ticket.dbId || undefined,
           code: ticket.ticketNo,
           plateNumber: ticket.vehicle?.plateNumber,
           weighInWeight: ticket.grossWeight,
@@ -169,11 +169,11 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         if (result?.id) {
           alert('✅ Đã tạo lệnh in. PC chính sẽ tự tải PDF và in.');
         } else {
-          alert('Tạo lệnh in thất bại.');
+          alert(`Tạo lệnh in thất bại: ${result.message || 'Không có phản hồi'}`);
         }
       } catch (e) {
         console.error(e);
-        alert('Lỗi khi tạo lệnh in.');
+        alert(`Lỗi khi tạo lệnh in: ${e.message}`);
       } finally {
         setIsProcessing(false);
       }
