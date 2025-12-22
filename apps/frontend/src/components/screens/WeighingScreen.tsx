@@ -252,7 +252,7 @@ const TextAreaField: React.FC<{
 // --- Industrial Digital Display Component ---
 const DigitalDisplay: React.FC<{ weight: number; status: string; isMobile?: boolean }> = React.memo(
   ({ weight, status, isMobile }) => {
-    const formattedWeight = weight.toLocaleString('vi-VN');
+        const formattedWeight = Math.floor(weight).toLocaleString('vi-VN');
 
     const getStatusColor = (s: string) => {
       if (s === 'connected') return 'bg-digital-on shadow-[0_0_5px_#00ff41]';
@@ -1037,7 +1037,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                   </div>
                   <div className="bg-white p-3 rounded border border-industrial-border">
                     <div className="text-[11px] text-industrial-muted uppercase mb-1">Cân lần 2 (Live)</div>
-                    <div className="text-sm font-bold">{weight.toLocaleString('vi-VN')} kg</div>
+                                        <div className="text-sm font-bold">{Math.floor(weight).toLocaleString('vi-VN')} kg</div>
                   </div>
                   <div className="col-span-2 bg-emerald-50 p-3 rounded border border-emerald-200">
                     <div className="text-[11px] text-emerald-700 uppercase mb-1">
@@ -1261,7 +1261,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
               </div>
               <div className="bg-white p-4 rounded border border-industrial-border">
                 <div className="text-[11px] text-industrial-muted uppercase mb-1">Cân lần 2 (Live)</div>
-                <div className="text-lg font-bold">{weight.toLocaleString('vi-VN')} kg</div>
+                                <div className="text-lg font-bold">{Math.floor(weight).toLocaleString('vi-VN')} kg</div>
                 <div className="text-[12px] text-slate-500 mt-1">Đang cập nhật...</div>
               </div>
               <div className="bg-emerald-50 p-4 rounded border border-emerald-200">
