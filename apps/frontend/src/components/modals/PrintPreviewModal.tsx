@@ -53,7 +53,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   stationInfo,
   onUpdateTicket,
 }) => {
-  const { status } = useWebSocket();
+    const { status, sendMessage } = useWebSocket();
   const machineId = (typeof window !== 'undefined' && localStorage.getItem('machineId')) || 'weigh1';
   const [zoom, setZoom] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
