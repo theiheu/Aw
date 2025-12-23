@@ -41,6 +41,7 @@ type PrintJobStatusResponse = {
   ticketId?: number;
   status: 'PENDING' | 'SENT' | 'COMPLETED' | 'FAILED' | 'NOT_FOUND';
   errorMessage?: string | null;
+  message?: string;
   copies: number;
   createdAt: string;
   updatedAt: string;

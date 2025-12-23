@@ -156,7 +156,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           machineId,
           idempotencyKey,
           copies: 1,
-          ticketId: ticket.dbId || undefined,
+          ticketId: ticket.id || undefined,
           code: ticket.ticketNo,
           plateNumber: ticket.vehicle?.plateNumber,
           weighInWeight: ticket.grossWeight,
@@ -171,9 +171,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         } else {
           alert(`Tạo lệnh in thất bại: ${result.message || 'Không có phản hồi'}`);
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.error(e);
-        alert(`Lỗi khi tạo lệnh in: ${e.message}`);
+                alert(`Lỗi khi tạo lệnh in: ${(e as Error).message}`);
       } finally {
         setIsProcessing(false);
       }
