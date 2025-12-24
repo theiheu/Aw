@@ -36,9 +36,7 @@ export const SideNav: React.FC<SideNavProps> = ({ activeScreen, setActiveScreen,
   const allNavItems = [
     { screen: 'main', label: 'Cân & Phiếu', icon: <ScaleIcon className="w-6 h-6" /> },
     { screen: 'ticketSubmission', label: 'Phiếu Của Tôi', icon: <ListIcon className="w-6 h-6" /> },
-    { screen: 'dataManagement', label: 'Dữ liệu & Xe', icon: <DatabaseIcon className="w-6 h-6" /> },
-    { screen: 'vehicleManagement', label: 'Quản lý Xe', icon: <DatabaseIcon className="w-6 h-6" /> },
-    { screen: 'driverManagement', label: 'Tài xế', icon: <DatabaseIcon className="w-6 h-6" /> },
+    { screen: 'dataHub', label: 'Quản lý dữ liệu', icon: <DatabaseIcon className="w-6 h-6" /> },
     { screen: 'reports', label: 'Báo cáo', icon: <BarChartIcon className="w-6 h-6" /> },
     { screen: 'settings', label: 'Cài đặt', icon: <SettingsIcon className="w-6 h-6" /> },
   ];

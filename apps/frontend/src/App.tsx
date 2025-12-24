@@ -12,20 +12,14 @@ const ReportsScreen = lazy(() =>
 const SettingsScreen = lazy(() =>
   import('./components/screens/SettingsScreen').then((m) => ({ default: m.SettingsScreen }))
 );
-const DataManagementScreen = lazy(() =>
-  import('./components/screens/DataManagementScreen').then((m) => ({ default: m.DataManagementScreen }))
+const DataHubScreen = lazy(() =>
+  import('./components/screens/DataHubScreen').then((m) => ({ default: m.DataHubScreen }))
 );
 const TicketSubmissionScreen = lazy(() =>
   import('./components/screens/TicketSubmissionScreen').then((m) => ({ default: m.TicketSubmissionScreen }))
 );
 const PrintPreviewModal = lazy(() =>
   import('./components/modals/PrintPreviewModal').then((m) => ({ default: m.PrintPreviewModal }))
-);
-const VehicleManagementScreen = lazy(() =>
-  import('./components/screens/VehicleManagementScreen').then((m) => ({ default: m.VehicleManagementScreen }))
-);
-const DriverManagementScreen = lazy(() =>
-  import('./components/screens/DriverManagementScreen').then((m) => ({ default: m.DriverManagementScreen }))
 );
 import {
   WeighTicket,
@@ -318,6 +312,8 @@ const App: React.FC = () => {
             onPrintRequest={showPrintPreview}
             currentUser={currentUser}
             stationInfo={stationInfo}
+            onAddVehicle={addVehicle}
+            onUpdateVehicle={updateVehicle}
           />
         );
       case SCREENS.REPORTS:
@@ -361,13 +357,14 @@ const App: React.FC = () => {
             onUpdateStationInfo={updateStationInfo}
           />
         );
-      case SCREENS.DATA_MANAGEMENT:
+      case SCREENS.DATA_HUB:
         return (
-          <DataManagementScreen
+          <DataHubScreen
             setActiveScreen={setActiveScreen}
             customers={customers}
             vehicles={vehicles}
             products={products}
+            drivers={drivers}
             onAddCustomer={addCustomer}
             onUpdateCustomer={updateCustomer}
             onDeleteCustomer={deleteCustomer}
@@ -377,21 +374,6 @@ const App: React.FC = () => {
             onAddProduct={addProduct}
             onUpdateProduct={updateProduct}
             onDeleteProduct={deleteProduct}
-          />
-        );
-      case SCREENS.VEHICLE_MANAGEMENT:
-        return (
-          <VehicleManagementScreen
-            vehicles={vehicles}
-            onAddVehicle={addVehicle}
-            onUpdateVehicle={updateVehicle}
-            onDeleteVehicle={deleteVehicle}
-          />
-        );
-      case SCREENS.DRIVER_MANAGEMENT:
-        return (
-          <DriverManagementScreen
-            drivers={drivers}
             onAddDriver={addDriver}
             onUpdateDriver={updateDriver}
             onDeleteDriver={deleteDriver}
@@ -409,6 +391,8 @@ const App: React.FC = () => {
             onPrintRequest={showPrintPreview}
             currentUser={currentUser}
             stationInfo={stationInfo}
+            onAddVehicle={addVehicle}
+            onUpdateVehicle={updateVehicle}
           />
         );
     }
@@ -422,7 +406,7 @@ const App: React.FC = () => {
       // Hint bundler to prefetch chunks
       import(/* webpackPrefetch: true */ './components/screens/ReportsScreen');
       import(/* webpackPrefetch: true */ './components/screens/SettingsScreen');
-      import(/* webpackPrefetch: true */ './components/screens/DataManagementScreen');
+      import(/* webpackPrefetch: true */ './components/screens/DataHubScreen');
       import(/* webpackPrefetch: true */ './components/screens/TicketSubmissionScreen');
       import(/* webpackPrefetch: true */ './components/modals/PrintPreviewModal');
     });

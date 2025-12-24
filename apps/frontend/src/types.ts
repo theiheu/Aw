@@ -18,7 +18,7 @@ export enum SignatureStatus {
   SIGNED = 'Đã ký số',
 }
 
-export type AppScreen = 'main' | 'reports' | 'settings' | 'dataManagement' | 'ticketSubmission' | 'vehicleManagement' | 'driverManagement';
+export type AppScreen = 'main' | 'reports' | 'settings' | 'dataManagement' | 'dataHub' | 'ticketSubmission' | 'vehicleManagement' | 'driverManagement';
 
 export interface User {
   name: string;
@@ -67,8 +67,40 @@ export interface Customer {
 export interface Vehicle {
   id: string;
   plateNumber: string;
-  defaultTare?: number;
-  // New fields for "Memory" feature (Auto-fill)
+  vehicleType?: string; // Loại xe (tải, ben, container...)
+  brand?: string;       // Hãng xe
+  model?: string;       // Mẫu xe
+  year?: number;        // Năm sản xuất
+  weightLimit?: number; // Tải trọng tối đa (kg)
+  defaultTare?: number; // Trọng lượng không tải mặc định
+
+  // Thông tin chủ sở hữu
+  ownerName?: string;   // Tên chủ xe
+  ownerPhone?: string;  // SĐT chủ xe
+  ownerAddress?: string; // Địa chỉ
+
+  // Thông tin mặc định cho cân
+  defaultDriver?: string;    // Tài xế thường xuyên
+  defaultCustomer?: string;  // Khách hàng thường xuyên
+  defaultProduct?: string;   // Mặt hàng thường xuyên
+
+  // Thông tin bảo dưỡng
+  lastMaintenanceDate?: Date | string;
+  nextMaintenanceDate?: Date | string;
+  maintenanceNotes?: string;
+
+  // Thống kê
+  totalWeighs?: number;     // Tổng số lần cân
+  lastWeighTime?: Date | string;     // Lần cân gần nhất
+  totalWeightTransported?: number; // Tổng khối lượng đã vận chuyển
+
+  // Metadata
+  notes?: string;          // Ghi chú
+  isActive: boolean;       // Trạng thái hoạt động
+  createdAt: Date | string; // Ngày tạo
+  updatedAt: Date | string; // Ngày cập nhật
+
+  // Legacy fields for backward compatibility
   lastDriverName?: string;
   lastCustomerName?: string;
   lastProductName?: string;

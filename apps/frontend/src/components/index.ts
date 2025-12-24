@@ -4,11 +4,10 @@
  */
 
 // Screens
-export { WeighingScreen } from './screens/WeighingScreen';
+// NOTE: Không export statically các screen đang được lazy-load trong App.tsx
+// để tránh Vite warning: module vừa dynamic import vừa static import.
+// export { WeighingScreen } from './screens/WeighingScreen'; // lazy-load in App.tsx
 export { DataManagementScreen } from './screens/DataManagementScreen';
-export { ReportsScreen } from './screens/ReportsScreen';
-export { SettingsScreen } from './screens/SettingsScreen';
-export { TicketSubmissionScreen } from './screens/TicketSubmissionScreen';
 export { VehicleManagementScreen } from './screens/VehicleManagementScreen';
 export { DriverManagementScreen } from './screens/DriverManagementScreen';
 

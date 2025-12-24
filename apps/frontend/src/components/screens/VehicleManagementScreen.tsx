@@ -1,15 +1,15 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { Vehicle } from '../../types';
-import { PlusIcon, EditIcon, TrashIcon, TruckIcon, SearchIcon } from '../common/icons';
+import React, { useState, useMemo } from 'react';
+import { Vehicle } from '../../../types';
+import { PlusIcon, EditIcon, TrashIcon, SearchIcon, TruckIcon, UserIcon, XIcon, CheckIcon } from '../common/icons';
 
 interface VehicleManagementScreenProps {
   vehicles: Vehicle[];
-  onAddVehicle: (vehicle: Omit<Vehicle, 'id'>) => Vehicle;
+  onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onUpdateVehicle: (vehicle: Vehicle) => void;
   onDeleteVehicle: (id: string) => void;
 }
 
-const VehicleManagementScreen: React.FC<VehicleManagementScreenProps> = ({
+export const VehicleManagementScreen: React.FC<VehicleManagementScreenProps> = ({
   vehicles,
   onAddVehicle,
   onUpdateVehicle,
@@ -18,367 +18,511 @@ const VehicleManagementScreen: React.FC<VehicleManagementScreenProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 10;
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'inactive'>('active');
 
+  // Filter vehicles based on search term and active status
   const filteredVehicles = useMemo(() => {
-    return vehicles.filter(
-      (v) =>
-        v.plateNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (v.ownerName && v.ownerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (v.vehicleType && v.vehicleType.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [vehicles, searchTerm]);
+    return vehicles.filter(vehicle => {
+      const matchesSearch =
+        vehicle.plateNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (vehicle.ownerName && vehicle.ownerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (vehicle.defaultDriver && vehicle.defaultDriver.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const paginatedVehicles = useMemo(() => {
-    const start = currentPage * pageSize;
-    return filteredVehicles.slice(start, start + pageSize);
-  }, [filteredVehicles, currentPage]);
+      const matchesStatus =
+        (activeTab === 'active' && vehicle.isActive) ||
+        (activeTab === 'inactive' && !vehicle.isActive) ||
+        activeTab === 'all';
 
-  const totalPages = Math.ceil(filteredVehicles.length / pageSize);
+      return matchesSearch && matchesStatus;
+    });
+  }, [vehicles, searchTerm, activeTab]);
 
-  const handleAddClick = useCallback(() => {
+  const handleAddClick = () => {
     setEditingVehicle(null);
     setIsModalOpen(true);
-  }, []);
+  };
 
-  const handleEditClick = useCallback((vehicle: Vehicle) => {
+  const handleEditClick = (vehicle: Vehicle) => {
     setEditingVehicle(vehicle);
     setIsModalOpen(true);
-  }, []);
+  };
 
-  const handleCloseModal = useCallback(() => {
+  const handleDeleteClick = (id: string) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa phương tiện này?')) {
+      onDeleteVehicle(id);
+    }
+  };
+
+  const handleSubmit = (formData: any) => {
+    if (editingVehicle) {
+      onUpdateVehicle({
+        ...editingVehicle,
+        ...formData,
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      const newVehicle = {
+        ...formData,
+        isActive: true,
+        totalWeighs: 0,
+        totalWeightTransported: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      onAddVehicle(newVehicle);
+    }
     setIsModalOpen(false);
-    setEditingVehicle(null);
-  }, []);
-
-  const handleSaveVehicle = useCallback(
-    (formData: any) => {
-      if (editingVehicle) {
-        onUpdateVehicle({ ...editingVehicle, ...formData });
-      } else {
-        onAddVehicle(formData);
-      }
-      handleCloseModal();
-    },
-    [editingVehicle, onAddVehicle, onUpdateVehicle, handleCloseModal]
-  );
-
-  const handleDeleteVehicle = useCallback(
-    (id: string) => {
-      if (window.confirm('Bạn có chắc chắn muốn xóa phương tiện này?')) {
-        onDeleteVehicle(id);
-      }
-    },
-    [onDeleteVehicle]
-  );
+  };
 
   return (
-    <div className="h-full flex flex-col bg-industrial-bg p-4 md:p-6 overflow-hidden">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div className="flex items-center gap-3 mb-4 md:mb-0">
-          <TruckIcon className="w-8 h-8 text-brand-primary" />
-          <h1 className="text-2xl font-bold text-brand-primary">Quản lý Phương tiện</h1>
-        </div>
+    <div className="p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Quản lý Phương tiện</h1>
         <button
           onClick={handleAddClick}
-          className="flex items-center gap-2 bg-brand-primary text-white px-4 py-2 rounded-lg hover:bg-brand-primary/90 transition-colors"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center"
         >
-          <PlusIcon className="w-5 h-5" />
-          Thêm phương tiện
+          <PlusIcon className="w-5 h-5 mr-2" />
+          Thêm Phương tiện
         </button>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative">
-          <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-industrial-muted" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm biển số, chủ sở hữu, loại xe..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(0);
-            }}
-            className="w-full pl-10 pr-4 py-2 border border-industrial-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
-          />
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="flex-1 overflow-x-auto overflow-y-auto bg-white rounded-lg shadow-sm border border-industrial-border">
-        {paginatedVehicles.length === 0 ? (
-          <div className="flex items-center justify-center h-64 text-industrial-muted">
-            {filteredVehicles.length === 0 ? 'Không có phương tiện nào' : 'Không có dữ liệu'}
+      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <div className="relative w-1/3">
+            <input
+              type="text"
+              placeholder="Tìm kiếm theo biển số, chủ xe..."
+              className="w-full pl-10 pr-4 py-2 border rounded-lg"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <SearchIcon className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
           </div>
-        ) : (
-          <table className="w-full min-w-[900px] text-sm">
-            <thead className="bg-slate-50 border-b border-industrial-border sticky top-0">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold text-brand-secondary">Biển số</th>
-                <th className="px-4 py-3 text-left font-semibold text-brand-secondary">Loại xe</th>
-                <th className="px-4 py-3 text-left font-semibold text-brand-secondary">Chủ sở hữu</th>
-                <th className="px-4 py-3 text-left font-semibold text-brand-secondary">Điện thoại</th>
-                <th className="px-4 py-3 text-left font-semibold text-brand-secondary">Giới hạn (kg)</th>
-                <th className="px-4 py-3 text-left font-semibold text-brand-secondary">Lần cân</th>
-                <th className="px-4 py-3 text-center font-semibold text-brand-secondary">Hành động</th>
+
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-4 py-2 rounded-lg ${activeTab === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'}`}
+            >
+              Tất cả
+            </button>
+            <button
+              onClick={() => setActiveTab('active')}
+              className={`px-4 py-2 rounded-lg ${activeTab === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}
+            >
+              Đang hoạt động
+            </button>
+            <button
+              onClick={() => setActiveTab('inactive')}
+              className={`px-4 py-2 rounded-lg ${activeTab === 'inactive' ? 'bg-red-100 text-red-700' : 'bg-gray-100'}`}
+            >
+              Ngừng hoạt động
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Biển số</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chủ xe</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tài xế</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loại hàng</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số lần cân</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
               </tr>
             </thead>
-            <tbody>
-              {paginatedVehicles.map((vehicle) => (
-                <tr key={vehicle.id} className="border-b border-industrial-border hover:bg-slate-50">
-                  <td className="px-4 py-3 font-semibold text-brand-primary">{vehicle.plateNumber}</td>
-                  <td className="px-4 py-3 text-brand-secondary">{vehicle.vehicleType || '-'}</td>
-                  <td className="px-4 py-3 text-brand-secondary">{vehicle.ownerName || '-'}</td>
-                  <td className="px-4 py-3 text-brand-secondary">{vehicle.ownerPhone || '-'}</td>
-                  <td className="px-4 py-3 text-brand-secondary">
-                    {vehicle.maxWeightLimit ? vehicle.maxWeightLimit.toLocaleString() : '-'}
+            <tbody className="divide-y divide-gray-200">
+              {filteredVehicles.map((vehicle) => (
+                <tr key={vehicle.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <TruckIcon className="h-5 w-5 text-blue-500 mr-2" />
+                      <span className="font-medium">{vehicle.plateNumber}</span>
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-brand-secondary">{vehicle.totalWeighCount || 0}</td>
-                  <td className="px-4 py-3 flex justify-center gap-2">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{vehicle.ownerName || '-'}</div>
+                    <div className="text-sm text-gray-500">{vehicle.ownerPhone || ''}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{vehicle.defaultDriver || '-'}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{vehicle.defaultProduct || '-'}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{vehicle.totalWeighs || 0}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${vehicle.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {vehicle.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => handleEditClick(vehicle)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Chỉnh sửa"
+                      className="text-blue-600 hover:text-blue-900 mr-4"
                     >
-                      <EditIcon className="w-4 h-4" />
+                      <EditIcon className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => handleDeleteVehicle(vehicle.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Xóa"
+                      onClick={() => handleDeleteClick(vehicle.id)}
+                      className="text-red-600 hover:text-red-900"
                     >
-                      <TrashIcon className="w-4 h-4" />
+                      <TrashIcon className="w-5 h-5" />
                     </button>
                   </td>
                 </tr>
               ))}
+              {filteredVehicles.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                    Không tìm thấy phương tiện nào phù hợp
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-        )}
+        </div>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-4 flex justify-center gap-2">
-          <button
-            onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-            disabled={currentPage === 0}
-            className="px-3 py-1 border border-industrial-border rounded-lg disabled:opacity-50 hover:bg-slate-50"
-          >
-            Trước
-          </button>
-          <span className="px-3 py-1 text-sm text-brand-secondary">
-            Trang {currentPage + 1} / {totalPages}
-          </span>
-          <button
-            onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
-            disabled={currentPage === totalPages - 1}
-            className="px-3 py-1 border border-industrial-border rounded-lg disabled:opacity-50 hover:bg-slate-50"
-          >
-            Tiếp
-          </button>
-        </div>
-      )}
-
-      {/* Modal */}
       {isModalOpen && (
         <VehicleFormModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          onSave={handleSaveVehicle}
-          editingVehicle={editingVehicle}
+          vehicle={editingVehicle}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleSubmit}
         />
       )}
     </div>
   );
 };
 
-interface VehicleFormModalProps {
-  isOpen: boolean;
+// VehicleFormModal component
+const VehicleFormModal: React.FC<{
+  vehicle: Vehicle | null;
   onClose: () => void;
-  onSave: (data: any) => void;
-  editingVehicle: Vehicle | null;
-}
-
-const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
-  isOpen,
-  onClose,
-  onSave,
-  editingVehicle,
-}) => {
-  const [formData, setFormData] = useState<any>({
-    plateNumber: '',
-    vehicleType: '',
-    ownerName: '',
-    ownerPhone: '',
-    ownerAddress: '',
-    maxWeightLimit: '',
+  onSubmit: (data: any) => void;
+}> = ({ vehicle, onClose, onSubmit }) => {
+  const [formData, setFormData] = useState({
+    plateNumber: vehicle?.plateNumber || '',
+    vehicleType: vehicle?.vehicleType || 'Xe tải',
+    brand: vehicle?.brand || '',
+    model: vehicle?.model || '',
+    year: vehicle?.year || new Date().getFullYear(),
+    weightLimit: vehicle?.weightLimit || 0,
+    defaultTare: vehicle?.defaultTare || 0,
+    ownerName: vehicle?.ownerName || '',
+    ownerPhone: vehicle?.ownerPhone || '',
+    ownerAddress: vehicle?.ownerAddress || '',
+    defaultDriver: vehicle?.defaultDriver || '',
+    defaultCustomer: vehicle?.defaultCustomer || '',
+    defaultProduct: vehicle?.defaultProduct || '',
+    lastMaintenanceDate: vehicle?.lastMaintenanceDate ?
+      new Date(vehicle.lastMaintenanceDate).toISOString().split('T')[0] : '',
+    nextMaintenanceDate: vehicle?.nextMaintenanceDate ?
+      new Date(vehicle.nextMaintenanceDate).toISOString().split('T')[0] : '',
+    maintenanceNotes: vehicle?.maintenanceNotes || '',
+    notes: vehicle?.notes || '',
+    isActive: vehicle?.isActive ?? true,
   });
 
-  React.useEffect(() => {
-    if (editingVehicle) {
-      setFormData(editingVehicle);
-    } else {
-      setFormData({
-        plateNumber: '',
-        vehicleType: '',
-        ownerName: '',
-        ownerPhone: '',
-        ownerAddress: '',
-        maxWeightLimit: '',
-      });
-    }
-  }, [editingVehicle, isOpen]);
-
-  if (!isOpen) return null;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev: any) => ({
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target as HTMLInputElement;
+    setFormData(prev => ({
       ...prev,
-      [name]: name === 'maxWeightLimit' ? (value ? parseFloat(value) : '') : value,
+      [name]: type === 'number' ? parseFloat(value) || 0 : value
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+    }));
+  };
+
+  const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.plateNumber.trim()) {
-      alert('Vui lòng nhập biển số');
-      return;
-    }
-    onSave(formData);
+    onSubmit(formData);
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <form onSubmit={handleSubmit}>
-          <div className="p-4 border-b bg-slate-50 rounded-t-lg sticky top-0">
-            <h2 className="text-lg font-bold text-brand-primary">
-              {editingVehicle ? 'Chỉnh sửa Phương tiện' : 'Thêm Phương tiện mới'}
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold">
+              {vehicle ? 'Chỉnh sửa Phương tiện' : 'Thêm Phương tiện Mới'}
             </h2>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+              <XIcon className="w-6 h-6" />
+            </button>
           </div>
 
-          <div className="p-4 space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Biển số *
-              </label>
-              <input
-                type="text"
-                name="plateNumber"
-                value={formData.plateNumber}
-                onChange={handleChange}
-                placeholder="VD: 29A-12345"
-                className="w-full px-3 py-2 border border-industrial-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                required
-              />
+          <form onSubmit={handleSubmitForm} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Thông tin cơ bản */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Thông tin cơ bản</h3>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Biển số *</label>
+                  <input
+                    type="text"
+                    name="plateNumber"
+                    value={formData.plateNumber}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Loại xe</label>
+                    <select
+                      name="vehicleType"
+                      value={formData.vehicleType}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="Xe tải">Xe tải</option>
+                      <option value="Xe ben">Xe ben</option>
+                      <option value="Xe container">Xe container</option>
+                      <option value="Xe đầu kéo">Xe đầu kéo</option>
+                      <option value="Xe khác">Khác</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Hãng xe</label>
+                    <input
+                      type="text"
+                      name="brand"
+                      value={formData.brand}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mẫu xe</label>
+                    <input
+                      type="text"
+                      name="model"
+                      value={formData.model}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Năm sản xuất</label>
+                    <input
+                      type="number"
+                      name="year"
+                      value={formData.year}
+                      onChange={handleChange}
+                      min="1900"
+                      max={new Date().getFullYear() + 1}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tải trọng tối đa (kg)</label>
+                    <input
+                      type="number"
+                      name="weightLimit"
+                      value={formData.weightLimit}
+                      onChange={handleChange}
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tự trọng mặc định (kg)</label>
+                    <input
+                      type="number"
+                      name="defaultTare"
+                      value={formData.defaultTare}
+                      onChange={handleChange}
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Thông tin chủ sở hữu */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Thông tin chủ sở hữu</h3>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tên chủ xe</label>
+                  <input
+                    type="text"
+                    name="ownerName"
+                    value={formData.ownerName}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
+                    <input
+                      type="tel"
+                      name="ownerPhone"
+                      value={formData.ownerPhone}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ</label>
+                    <input
+                      type="text"
+                      name="ownerAddress"
+                      value={formData.ownerAddress}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Thông tin mặc định */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Thông tin mặc định</h3>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tài xế thường xuyên</label>
+                  <input
+                    type="text"
+                    name="defaultDriver"
+                    value={formData.defaultDriver}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Khách hàng thường xuyên</label>
+                  <input
+                    type="text"
+                    name="defaultCustomer"
+                    value={formData.defaultCustomer}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mặt hàng thường xuyên</label>
+                  <input
+                    type="text"
+                    name="defaultProduct"
+                    value={formData.defaultProduct}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Bảo dưỡng & Ghi chú */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Bảo dưỡng & Ghi chú</h3>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Lần bảo dưỡng cuối</label>
+                    <input
+                      type="date"
+                      name="lastMaintenanceDate"
+                      value={formData.lastMaintenanceDate}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Hẹn bảo dưỡng tiếp</label>
+                    <input
+                      type="date"
+                      name="nextMaintenanceDate"
+                      value={formData.nextMaintenanceDate}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú bảo dưỡng</label>
+                  <textarea
+                    name="maintenanceNotes"
+                    value={formData.maintenanceNotes}
+                    onChange={handleChange}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú khác</label>
+                  <textarea
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleChange}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    id="isActive"
+                    name="isActive"
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={handleCheckboxChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
+                    Phương tiện đang hoạt động
+                  </label>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Loại xe
-              </label>
-              <select
-                name="vehicleType"
-                value={formData.vehicleType}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-industrial-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                <option value="">-- Chọn loại xe --</option>
-                <option value="Xe tải">Xe tải</option>
-                <option value="Xe ben">Xe ben</option>
-                <option value="Xe đầu kéo">Xe đầu kéo</option>
-                <option value="Xe khác">Xe khác</option>
-              </select>
+                Hủy
+              </button>
+              <button
+                type="submit"
+                className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                {vehicle ? 'Cập nhật' : 'Thêm mới'}
+              </button>
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Chủ sở hữu
-              </label>
-              <input
-                type="text"
-                name="ownerName"
-                value={formData.ownerName}
-                onChange={handleChange}
-                placeholder="Tên chủ sở hữu"
-                className="w-full px-3 py-2 border border-industrial-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Điện thoại
-              </label>
-              <input
-                type="tel"
-                name="ownerPhone"
-                value={formData.ownerPhone}
-                onChange={handleChange}
-                placeholder="0912345678"
-                className="w-full px-3 py-2 border border-industrial-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Địa chỉ
-              </label>
-              <input
-                type="text"
-                name="ownerAddress"
-                value={formData.ownerAddress}
-                onChange={handleChange}
-                placeholder="Địa chỉ chủ sở hữu"
-                className="w-full px-3 py-2 border border-industrial-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Giới hạn trọng lượng (kg)
-              </label>
-              <input
-                type="number"
-                name="maxWeightLimit"
-                value={formData.maxWeightLimit}
-                onChange={handleChange}
-                placeholder="VD: 10000"
-                className="w-full px-3 py-2 border border-industrial-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
-              />
-            </div>
-          </div>
-
-          <div className="p-4 border-t bg-slate-50 rounded-b-lg flex gap-3 justify-end sticky bottom-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-industrial-border rounded-lg text-brand-secondary hover:bg-slate-50 transition-colors"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors"
-            >
-              {editingVehicle ? 'Cập nhật' : 'Thêm mới'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
 };
 
-export { VehicleManagementScreen };
-
+export default VehicleManagementScreen;

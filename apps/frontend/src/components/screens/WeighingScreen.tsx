@@ -14,6 +14,11 @@ import {
   XIcon,
 } from '../common/icons';
 import { UI_CONFIG, PAGINATION } from '../../constants/app';
+import { QuickAddVehicleModal } from '../modals/QuickAddVehicleModal';
+import { useVehicleProfile } from '../../hooks/useVehicleProfile';
+import { DigitalDisplay } from '../common/DigitalDisplay';
+import { TicketRow } from '../common/TicketRow';
+import { FilterControls } from '../common/FilterControls';
 
 interface WeighingScreenProps {
   processWeighing: (data: {
@@ -34,6 +39,8 @@ interface WeighingScreenProps {
   onPrintRequest: (ticket: WeighTicket) => void;
   currentUser: User;
   stationInfo: StationInfo;
+  onUpdateVehicle?: (vehicle: Vehicle) => void; // Thêm hàm cập nhật xe
+  onAddVehicle?: (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>) => void; // Tạo xe nhanh từ màn cân
 }
 
 // --- FIX: InputField moved OUTSIDE component to prevent re-render focus loss ---
@@ -249,127 +256,6 @@ const TextAreaField: React.FC<{
   </div>
 ));
 
-// --- Industrial Digital Display Component ---
-const DigitalDisplay: React.FC<{ weight: number; status: string; isMobile?: boolean }> = React.memo(
-  ({ weight, status, isMobile }) => {
-        const formattedWeight = Math.floor(weight).toLocaleString('vi-VN');
-
-    const getStatusColor = (s: string) => {
-      if (s === 'connected') return 'bg-digital-on shadow-[0_0_5px_#00ff41]';
-      if (s === 'connecting') return 'bg-yellow-500 shadow-[0_0_5px_yellow] animate-pulse';
-      if (s === 'error') return 'bg-red-500 shadow-[0_0_5px_red] animate-pulse';
-      return 'bg-slate-500 shadow-[0_0_5px_gray]';
-    };
-
-    const getStatusText = (s: string) => {
-      if (s === 'connected') return 'ONLINE';
-      if (s === 'connecting') return 'WAITING...';
-      if (s === 'error') return 'ERROR';
-      return 'OFFLINE';
-    };
-
-    if (isMobile) {
-      // --- MOBILE COMPACT VIEW ---
-      return (
-        <div className="bg-gray-900 p-3 shadow-md border-b-4 border-brand-primary relative overflow-hidden flex items-center justify-between">
-          {/* Subtle Grid Background */}
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage:
-                'linear-gradient(0deg, transparent 24%, #222 25%, #222 26%, transparent 27%, transparent 74%, #222 75%, #222 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, #222 25%, #222 26%, transparent 27%, transparent 74%, #222 75%, #222 76%, transparent 77%, transparent)',
-              backgroundSize: '20px 20px',
-            }}
-          ></div>
-
-          {/* Left: Status */}
-          <div className="flex flex-col gap-1 z-10 pl-1">
-            <div className="flex items-center gap-1.5">
-              <div className={`w-2 h-2 rounded-full ${getStatusColor(status)}`}></div>
-              <span
-                className={`text-[10px] font-mono uppercase tracking-widest ${status === 'error' ? 'text-red-500 font-bold' : 'text-gray-400'}`}
-              >
-                {getStatusText(status)}
-              </span>
-            </div>
-            <span className="text-[9px] font-mono uppercase tracking-widest text-gray-600">
-              STABLE
-            </span>
-          </div>
-
-          {/* Right: Weight & Unit */}
-          <div className="flex items-baseline gap-1 z-10">
-            <div className="font-digital text-5xl font-bold tracking-wider text-digital-on digital-text-shadow tabular-nums leading-none">
-              {formattedWeight}
-            </div>
-            <div className="text-gray-500 font-mono text-sm font-bold">KG</div>
-          </div>
-        </div>
-      );
-    }
-
-    // --- DESKTOP FULL VIEW ---
-    return (
-      <div className="bg-gray-900 rounded-xl p-2 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] border-2 border-gray-700 relative">
-        {/* Bezel Screws (Visual) */}
-        <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-gray-600 shadow-inner"></div>
-        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-gray-600 shadow-inner"></div>
-        <div className="absolute bottom-2 left-2 w-2 h-2 rounded-full bg-gray-600 shadow-inner"></div>
-        <div className="absolute bottom-2 right-2 w-2 h-2 rounded-full bg-gray-600 shadow-inner"></div>
-
-        <div className="bg-black rounded-lg border-4 border-gray-800 relative overflow-hidden h-40 sm:h-48 flex flex-col items-center justify-center">
-          {/* Background Grid Line */}
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage:
-                'linear-gradient(0deg, transparent 24%, #222 25%, #222 26%, transparent 27%, transparent 74%, #222 75%, #222 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, #222 25%, #222 26%, transparent 27%, transparent 74%, #222 75%, #222 76%, transparent 77%, transparent)',
-              backgroundSize: '30px 30px',
-            }}
-          ></div>
-
-          {/* Status Indicators */}
-          <div className="absolute top-4 w-full px-6 flex justify-between items-center z-10">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${getStatusColor(status)}`}></div>
-              <span
-                className={`text-[10px] font-mono uppercase tracking-widest ${status === 'error' ? 'text-red-500 font-bold' : 'text-gray-500'}`}
-              >
-                {getStatusText(status)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-gray-500">
-                STABLE
-              </span>
-              <div
-                className={`w-2 h-2 rounded-full ${weight > 0 && status === 'connected' ? 'bg-digital-on shadow-[0_0_8px_#00ff41]' : 'bg-gray-800'}`}
-              ></div>
-            </div>
-          </div>
-
-          {/* Main Digits */}
-          <div className="font-digital text-7xl sm:text-8xl font-bold tracking-widest text-digital-on digital-text-shadow z-10 tabular-nums">
-            {formattedWeight}
-          </div>
-
-          {/* Unit */}
-          <div className="absolute bottom-4 right-6 text-gray-500 font-mono text-lg font-bold z-10">
-            KG
-          </div>
-
-          {/* Zero Indicator */}
-          {weight === 0 && (
-            <div className="absolute bottom-4 left-6 text-brand-accent font-mono text-xs font-bold z-10 tracking-widest">
-              ZERO
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-);
-
 const StatusBadge: React.FC<{ status: TicketStatus; isSigned: boolean; compact?: boolean }> =
   React.memo(({ status, isSigned, compact }) => {
     const styles = useMemo(() => {
@@ -439,101 +325,6 @@ const useMediaQuery = (query: string) => {
   return matches;
 };
 
-// Table Row Component for List View - MEMOIZED for performance
-const TicketRow: React.FC<{
-  t: WeighTicket;
-  onClick: (t: WeighTicket) => void;
-  isSelected: boolean;
-}> = React.memo(({ t, onClick, isSelected }) => (
-  <div
-    onClick={() => onClick(t)}
-    className={`p-3 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-all ${isSelected ? 'bg-blue-50 border-l-4 border-l-brand-primary' : 'border-l-4 border-l-transparent'}`}
-  >
-    {/* Optimized Layout for Mobile */}
-    <div className="flex flex-col gap-1.5">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <span className="font-extrabold text-slate-800 text-base">{t.vehicle.plateNumber}</span>
-          <StatusBadge status={t.status} isSigned={t.isSigned} compact />
-        </div>
-        <span className="font-mono font-extrabold text-brand-primary text-base">
-          {t.netWeight > 0 ? t.netWeight.toLocaleString('vi-VN') : '--'}{' '}
-          <span className="text-[10px] text-gray-400 font-sans">KG</span>
-        </span>
-      </div>
-
-      <div className="flex justify-between items-end">
-        <div className="flex flex-col">
-          <span className="text-xs text-industrial-muted font-medium">{t.ticketNo}</span>
-          <span className="text-[10px] text-slate-400 mt-0.5">{t.customer.name}</span>
-          <span className="text-[10px] text-emerald-600 font-medium mt-0.5">📦 {t.product.name}</span>
-        </div>
-        <div className="text-[10px] text-industrial-muted font-medium">
-          {new Date(t.weighInTime).toLocaleString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            day: 'numeric',
-            month: 'numeric',
-          })}
-        </div>
-      </div>
-    </div>
-  </div>
-));
-
-// Fix: FilterControls defined outside to maintain focus
-const FilterControls: React.FC<{
-  filters: any;
-  handleFilterChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
-}> = React.memo(({ filters, handleFilterChange }) => (
-  <div className="bg-slate-50 p-3 rounded-lg border border-industrial-border mb-3 animate-in fade-in duration-300">
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      <div>
-        <label className="block text-[10px] font-bold text-industrial-muted uppercase mb-1">
-          Từ ngày
-        </label>
-        <input
-          type="date"
-          name="dateStart"
-          value={filters.dateStart}
-          onChange={handleFilterChange}
-          className="w-full p-2 bg-white border border-industrial-border rounded text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-        />
-      </div>
-      <div>
-        <label className="block text-[10px] font-bold text-industrial-muted uppercase mb-1">
-          Đến ngày
-        </label>
-        <input
-          type="date"
-          name="dateEnd"
-          value={filters.dateEnd}
-          onChange={handleFilterChange}
-          className="w-full p-2 bg-white border border-industrial-border rounded text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-        />
-      </div>
-      <div>
-        <label className="block text-[10px] font-bold text-industrial-muted uppercase mb-1">
-          Trạng thái
-        </label>
-        <select
-          name="status"
-          value={filters.status}
-          onChange={handleFilterChange}
-          className="w-full p-2 bg-white border border-industrial-border rounded text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
-        >
-          <option value="">Tất cả</option>
-          {Object.values(TicketStatus).map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  </div>
-));
-
 export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
   const { weight, status: connectionStatus } = useWebSocket();
   const isMobile = useMediaQuery('(max-width: 1023px)');
@@ -555,7 +346,29 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
   const [editGross, setEditGross] = useState<number>(0);
   const [editTare, setEditTare] = useState<number>(0);
 
+  // New states for vehicle search
+  const [vehicleSearchResults, setVehicleSearchResults] = useState<Vehicle[]>([]);
+  const [showVehicleSuggestions, setShowVehicleSuggestions] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
+
+
+
+  const formMode = useMemo(() => {
+    if (!selectedTicket) return 'new';
+    if (selectedTicket.status === TicketStatus.PENDING_SECOND_WEIGH) return 'second_weigh';
+    return 'view_completed';
+  }, [selectedTicket]);
+
+  // Quick-add vehicle modal (from weighing screen)
+  const [isQuickAddVehicleOpen, setIsQuickAddVehicleOpen] = useState(false);
+
+  const { vehicleNotFound, pendingPlate, autoCustomerName, autoProductName, resetNotFound } = useVehicleProfile({
+    vehicles: props.vehicles,
+    plateNumber,
+    enabled: formMode === 'new',
+  });
+
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [activeMobileTab, setActiveMobileTab] = useState<'weigh' | 'list'>('weigh');
   const [showFilters, setShowFilters] = useState(false);
@@ -569,6 +382,40 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
 
   // Pagination state for list rendering performance
   const [visibleCount, setVisibleCount] = useState<number>(PAGINATION.DEFAULT_PAGE_SIZE);
+
+  // Hàm tìm kiếm xe
+  const searchVehicles = useCallback((query: string) => {
+    if (!query || query.length < 2) return [];
+
+    const q = query.toLowerCase().trim();
+    return props.vehicles.filter(vehicle =>
+      vehicle.plateNumber.toLowerCase().includes(q) ||
+      (vehicle.ownerName && vehicle.ownerName.toLowerCase().includes(q)) ||
+      (vehicle.defaultDriver && vehicle.defaultDriver.toLowerCase().includes(q))
+    ).slice(0, 5); // Giới hạn kết quả
+  }, [props.vehicles]);
+
+  // Cập nhật kết quả tìm kiếm khi biển số thay đổi
+  useEffect(() => {
+    if (plateNumber.length >= 2) {
+      setVehicleSearchResults(searchVehicles(plateNumber));
+      setShowVehicleSuggestions(true);
+    } else {
+      setVehicleSearchResults([]);
+      setShowVehicleSuggestions(false);
+    }
+  }, [plateNumber, searchVehicles]);
+
+  // Xử lý khi chọn một xe từ danh sách gợi ý
+  const handleSelectVehicle = useCallback((vehicle: Vehicle) => {
+    setPlateNumber(vehicle.plateNumber);
+    // Profile xe: chỉ auto-fill Khách hàng + Hàng hoá (theo yêu cầu)
+    if (vehicle.defaultCustomer) setCustomerName(vehicle.defaultCustomer);
+    if (vehicle.defaultProduct) setProductName(vehicle.defaultProduct);
+    resetNotFound();
+    // Không auto-fill tài xế nữa
+    setShowVehicleSuggestions(false);
+  }, []);
 
   // Debounce search term to reduce filtering frequency
   useEffect(() => {
@@ -586,11 +433,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const MIN_SWIPE_DISTANCE = 50;
 
-  const formMode = useMemo(() => {
-    if (!selectedTicket) return 'new';
-    if (selectedTicket.status === TicketStatus.PENDING_SECOND_WEIGH) return 'second_weigh';
-    return 'view_completed';
-  }, [selectedTicket]);
 
   const vehicleOptions = useMemo(() => props.vehicles.map((v) => v.plateNumber), [props.vehicles]);
   const customerOptions = useMemo(() => props.customers.map((c) => c.name), [props.customers]);
@@ -632,19 +474,19 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     return Math.abs(g - Number(weight || 0));
   }, [selectedTicket, formMode, weight]);
 
-  // --- AUTO-FILL LOGIC ---
+  // Auto-fill theo hồ sơ xe (hook useVehicleProfile)
   useEffect(() => {
-    if (formMode === 'new' && plateNumber.length >= 3) {
-      const foundVehicle = props.vehicles.find(
-        (v) => v.plateNumber.toLowerCase() === plateNumber.toLowerCase()
-      );
-      if (foundVehicle) {
-        if (foundVehicle.lastCustomerName) setCustomerName(foundVehicle.lastCustomerName);
-        if (foundVehicle.lastProductName) setProductName(foundVehicle.lastProductName);
-        if (foundVehicle.lastDriverName) setDriver(foundVehicle.lastDriverName);
-      }
+    if (formMode !== 'new') return;
+    if (vehicleNotFound) {
+      setCustomerName('');
+      setProductName('');
+      return;
     }
-  }, [plateNumber, formMode, props.vehicles]);
+
+    // Nếu tìm thấy xe: auto-fill
+    if (autoCustomerName) setCustomerName(autoCustomerName);
+    if (autoProductName) setProductName(autoProductName);
+  }, [formMode, vehicleNotFound, autoCustomerName, autoProductName]);
 
   useEffect(() => {
     if (selectedTicket) {
@@ -735,6 +577,28 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
         alert('Chưa nhận được dữ liệu hợp lệ từ trạm cân. Vui lòng kiểm tra kết nối.');
         return;
       }
+
+      // Cập nhật thống kê cho xe nếu là cân mới.
+      // LƯU Ý: không tự overwrite hồ sơ xe (defaultCustomer/defaultProduct) theo từng lần cân,
+      // vì hồ sơ xe được quản lý cố định (tránh sai/loạn thông tin).
+      if (type === 'first' || type === 'single') {
+        const vehicle = props.vehicles.find(v =>
+          v.plateNumber.toLowerCase() === plateNumber.toLowerCase()
+        );
+
+        if (vehicle && props.onUpdateVehicle) {
+          const updates: Partial<Vehicle> = {
+            lastWeighTime: new Date().toISOString(),
+            totalWeighs: (vehicle.totalWeighs || 0) + 1,
+            totalWeightTransported: (vehicle.totalWeightTransported || 0) +
+              (type === 'single' ? weight : 0),
+            updatedAt: new Date().toISOString()
+          };
+
+          props.onUpdateVehicle({ ...vehicle, ...updates });
+        }
+      }
+
       if (type === 'second') {
         if (!selectedTicket || formMode !== 'second_weigh') return;
         const updatedCustomer = { ...selectedTicket.customer, name: customerName };
@@ -764,7 +628,18 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
           notes,
         });
       }
-      setSelectedTicket(null);
+
+      // Reset form nếu là cân đơn hoặc sau khi hoàn thành cân lần 2
+      if (type === 'single' || type === 'second') {
+        setSelectedTicket(null);
+      } else if (type === 'first') {
+        // Giữ lại thông tin xe cho lần cân tiếp theo
+        setCustomerName('');
+        setProductName('');
+        setDriver('');
+        setNotes('');
+        // Giữ lại biển số để người dùng không cần nhập lại
+      }
     },
     [
       connectionStatus,
@@ -779,6 +654,8 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
       notes,
       props.processWeighing,
       props.updateTicket,
+      props.vehicles,
+      props.onUpdateVehicle,
     ]
   );
 
@@ -849,6 +726,7 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     setNotes('');
     setEditGross(0);
     setEditTare(0);
+    resetNotFound();
     setOperatorName(props.stationInfo.defaultOperatorName || props.currentUser.name);
     if (isMobile) setActiveMobileTab('weigh');
   }, [isMobile, props.currentUser.name, props.stationInfo.defaultOperatorName]);
@@ -972,6 +850,34 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
     const slicedTickets = filteredTickets.slice(0, visibleCount);
     return (
       <div className="h-full flex flex-col bg-industrial-bg overflow-hidden">
+        <QuickAddVehicleModal
+          open={isQuickAddVehicleOpen}
+          initialPlateNumber={pendingPlate}
+          customerOptions={customerOptions}
+          productOptions={productOptions}
+          onClose={() => setIsQuickAddVehicleOpen(false)}
+          onSubmit={(data) => {
+            if (!props.onAddVehicle) {
+              alert('Chưa cấu hình hàm tạo xe (onAddVehicle).');
+              return;
+            }
+            props.onAddVehicle({
+              plateNumber: data.plateNumber,
+              defaultCustomer: data.defaultCustomer,
+              defaultProduct: data.defaultProduct,
+              // các field còn lại để trống/0, sẽ được set default ở nơi lưu trữ
+              isActive: true,
+              totalWeighs: 0,
+              totalWeightTransported: 0,
+            } as any);
+
+            setPlateNumber(data.plateNumber);
+            setCustomerName(data.defaultCustomer || '');
+            setProductName(data.defaultProduct || '');
+            resetNotFound();
+            setIsQuickAddVehicleOpen(false);
+          }}
+        />
         <div className="shrink-0">
           <DigitalDisplay weight={weight} status={connectionStatus} isMobile={true} />
         </div>
@@ -1058,17 +964,50 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                       Vận tải & Tài xế
                     </h3>
                   </div>
+
+                  {formMode === 'new' && vehicleNotFound && pendingPlate && (
+                    <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+                      <div className="font-bold">Xe chưa có trong hệ thống</div>
+                      <div className="text-xs mt-1">Biển số: <span className="font-mono font-bold">{pendingPlate}</span></div>
+                      <button
+                        type="button"
+                        onClick={() => setIsQuickAddVehicleOpen(true)}
+                        className="mt-2 px-3 py-2 rounded bg-brand-accent text-white font-bold text-xs uppercase"
+                      >
+                        Tạo xe mới
+                      </button>
+                    </div>
+                  )}
+
                   <div className="space-y-3">
-                    <InputField
-                      label="Biển số xe"
-                      value={plateNumber}
-                      onChange={setPlateNumber}
-                      options={vehicleOptions}
-                      dataListId="vehicle-options"
-                      placeholder="59C-12345"
-                      disabled={formMode !== 'new' && !isEditing}
-                      icon={<TruckIcon className="w-4 h-4" />}
-                    />
+                    <div className="relative">
+                      <InputField
+                        label="Biển số xe"
+                        value={plateNumber}
+                        onChange={setPlateNumber}
+                        onFocus={() => plateNumber.length >= 2 && setShowVehicleSuggestions(true)}
+                        placeholder="Nhập biển số hoặc tên chủ xe..."
+                        disabled={formMode !== 'new' && !isEditing}
+                        icon={<TruckIcon className="w-4 h-4" />}
+                      />
+                      {showVehicleSuggestions && vehicleSearchResults.length > 0 && (
+                        <div className="absolute z-50 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                          {vehicleSearchResults.map((vehicle) => (
+                            <div
+                              key={vehicle.id}
+                              onClick={() => handleSelectVehicle(vehicle)}
+                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
+                            >
+                              <div className="font-medium">{vehicle.plateNumber}</div>
+                              <div className="text-sm text-gray-600">
+                                {vehicle.ownerName && <span>Chủ: {vehicle.ownerName}</span>}
+                                {vehicle.defaultDriver && <span className="ml-2">Tài xế: {vehicle.defaultDriver}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <InputField
                       label="Tài xế"
                       value={driver}
@@ -1100,8 +1039,8 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                       onChange={setCustomerName}
                       options={customerOptions}
                       dataListId="customer-options"
-                      placeholder="Chọn đối tác"
-                      disabled={formMode !== 'new' && !isEditing}
+                      placeholder="Tự động theo hồ sơ xe"
+                      disabled={formMode === 'new' ? true : (formMode !== 'new' && !isEditing)}
                       icon={<UserIcon className="w-4 h-4" />}
                     />
                     <InputField
@@ -1110,8 +1049,8 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                       onChange={setProductName}
                       options={productOptions}
                       dataListId="product-options"
-                      placeholder="Chọn hàng hoá"
-                      disabled={formMode !== 'new' && !isEditing}
+                      placeholder="Tự động theo hồ sơ xe"
+                      disabled={formMode === 'new' ? true : (formMode !== 'new' && !isEditing)}
                       icon={<PackageIcon className="w-4 h-4" />}
                     />
                     <TextAreaField
@@ -1218,6 +1157,34 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
   // Desktop View - 2 Column Layout
   const slicedTickets = filteredTickets.slice(0, visibleCount);
   return (
+    <>
+      <QuickAddVehicleModal
+        open={isQuickAddVehicleOpen}
+        initialPlateNumber={pendingPlate}
+        customerOptions={customerOptions}
+        productOptions={productOptions}
+        onClose={() => setIsQuickAddVehicleOpen(false)}
+        onSubmit={(data) => {
+          if (!props.onAddVehicle) {
+            alert('Chưa cấu hình hàm tạo xe (onAddVehicle).');
+            return;
+          }
+          props.onAddVehicle({
+            plateNumber: data.plateNumber,
+            defaultCustomer: data.defaultCustomer,
+            defaultProduct: data.defaultProduct,
+            isActive: true,
+            totalWeighs: 0,
+            totalWeightTransported: 0,
+          } as any);
+
+          setPlateNumber(data.plateNumber);
+          setCustomerName(data.defaultCustomer || '');
+          setProductName(data.defaultProduct || '');
+          resetNotFound();
+          setIsQuickAddVehicleOpen(false);
+        }}
+      />
     <div className="h-full w-full grid grid-cols-1 lg:grid-cols-12 bg-industrial-bg overflow-hidden min-h-0">
       {/* COLUMN 1: OPERATION (Scale + Form) - Spans 7 columns */}
       <div className="col-span-12 lg:col-span-7 flex flex-col h-full min-h-0 overflow-hidden border-r border-industrial-border bg-white shadow-[10px_0_30px_-10px_rgba(0,0,0,0.05)] z-10">
@@ -1284,17 +1251,50 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                   Thông tin vận tải
                 </h3>
               </div>
+
+              {formMode === 'new' && vehicleNotFound && pendingPlate && (
+                <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+                  <div className="font-bold">Xe chưa có trong hệ thống</div>
+                  <div className="text-xs mt-1">Biển số: <span className="font-mono font-bold">{pendingPlate}</span></div>
+                  <button
+                    type="button"
+                    onClick={() => setIsQuickAddVehicleOpen(true)}
+                    className="mt-2 px-3 py-2 rounded bg-brand-accent text-white font-bold text-xs uppercase"
+                  >
+                    Tạo xe mới
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-4">
-                <InputField
-                  label="Biển số xe"
-                  value={plateNumber}
-                  onChange={setPlateNumber}
-                  options={vehicleOptions}
-                  dataListId="vehicle-options"
-                  placeholder="59C-XXX.XX"
-                  disabled={formMode !== 'new' && !isEditing}
-                  icon={<TruckIcon className="w-4 h-4" />}
-                />
+                <div className="relative">
+                  <InputField
+                    label="Biển số xe"
+                    value={plateNumber}
+                    onChange={setPlateNumber}
+                    onFocus={() => plateNumber.length >= 2 && setShowVehicleSuggestions(true)}
+                    placeholder="Nhập biển số hoặc tên chủ xe..."
+                    disabled={formMode !== 'new' && !isEditing}
+                    icon={<TruckIcon className="w-4 h-4" />}
+                  />
+                  {showVehicleSuggestions && vehicleSearchResults.length > 0 && (
+                    <div className="absolute z-50 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                      {vehicleSearchResults.map((vehicle) => (
+                        <div
+                          key={vehicle.id}
+                          onClick={() => handleSelectVehicle(vehicle)}
+                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
+                        >
+                          <div className="font-medium">{vehicle.plateNumber}</div>
+                          <div className="text-sm text-gray-600">
+                            {vehicle.ownerName && <span>Chủ: {vehicle.ownerName}</span>}
+                            {vehicle.defaultDriver && <span className="ml-2">Tài xế: {vehicle.defaultDriver}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <InputField
                   label="Tài xế"
                   value={driver}
@@ -1329,8 +1329,8 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                   onChange={setCustomerName}
                   options={customerOptions}
                   dataListId="customer-options"
-                  placeholder="Chọn công ty"
-                  disabled={formMode !== 'new' && !isEditing}
+                  placeholder="Tự động theo hồ sơ xe"
+                  disabled={formMode === 'new' ? true : (formMode !== 'new' && !isEditing)}
                   icon={<UserIcon className="w-4 h-4" />}
                 />
                 <InputField
@@ -1339,8 +1339,8 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
                   onChange={setProductName}
                   options={productOptions}
                   dataListId="product-options"
-                  placeholder="Chọn hàng"
-                  disabled={formMode !== 'new' && !isEditing}
+                  placeholder="Tự động theo hồ sơ xe"
+                  disabled={formMode === 'new' ? true : (formMode !== 'new' && !isEditing)}
                   icon={<PackageIcon className="w-4 h-4" />}
                 />
               </div>
@@ -1473,5 +1473,6 @@ export const WeighingScreen: React.FC<WeighingScreenProps> = (props) => {
         </div>
       </div>
     </div>
+    </>
   );
 };

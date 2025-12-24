@@ -48,6 +48,7 @@ export const SCREENS = {
   REPORTS: 'reports',
   SETTINGS: 'settings',
   DATA_MANAGEMENT: 'dataManagement',
+  DATA_HUB: 'dataHub',
   TICKET_SUBMISSION: 'ticketSubmission',
   VEHICLE_MANAGEMENT: 'vehicleManagement',
   DRIVER_MANAGEMENT: 'driverManagement',

@@ -1,28 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Customer, Vehicle, Product, AppScreen } from '../../types';
+import { Customer, Product, AppScreen } from '../../types';
 import {
   PlusIcon,
   EditIcon,
   TrashIcon,
   UserIcon,
-  TruckIcon,
   PackageIcon,
 } from '../common/icons';
 
-type Entity = Customer | Vehicle | Product;
-type EntityType = 'customer' | 'vehicle' | 'product';
+type Entity = Customer | Product;
+type EntityType = 'customer' | 'product';
 
 interface DataManagementScreenProps {
   setActiveScreen: (screen: AppScreen) => void;
   customers: Customer[];
-  vehicles: Vehicle[];
   products: Product[];
   onAddCustomer: (customer: Omit<Customer, 'id'>) => void;
   onUpdateCustomer: (customer: Customer) => void;
   onDeleteCustomer: (id: string) => void;
-  onAddVehicle: (vehicle: Omit<Vehicle, 'id'>) => void;
-  onUpdateVehicle: (vehicle: Vehicle) => void;
-  onDeleteVehicle: (id: string) => void;
   onAddProduct: (product: Omit<Product, 'id'>) => void;
   onUpdateProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
@@ -43,14 +38,7 @@ const DataFormModal: React.FC<{
     if (editingItem) {
       setFormData(editingItem);
     } else {
-      if (entityType === 'customer' || entityType === 'product') setFormData({ name: '' });
-      if (entityType === 'vehicle')
-        setFormData({
-          plateNumber: '',
-          lastCustomerName: '',
-          lastProductName: '',
-          lastDriverName: '',
-        });
+      setFormData({ name: '' });
     }
   }, [editingItem, entityType, isOpen]);
 
@@ -70,8 +58,6 @@ const DataFormModal: React.FC<{
     switch (entityType) {
       case 'customer':
         return `${action} Khách hàng`;
-      case 'vehicle':
-        return `${action} Phương tiện`;
       case 'product':
         return `${action} Hàng hóa`;
     }
@@ -122,80 +108,6 @@ const DataFormModal: React.FC<{
                 />
               </div>
             )}
-
-            {entityType === 'vehicle' && (
-              <>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Biển số xe <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="plateNumber"
-                    value={formData.plateNumber || ''}
-                    onChange={handleChange}
-                    placeholder="VD: 59C-123.45"
-                    className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent font-bold"
-                    required
-                  />
-                </div>
-                <div className="pt-2 border-t border-slate-100 mt-2">
-                  <p className="text-xs font-semibold text-brand-primary mb-3 uppercase tracking-wide">
-                    Thông tin mặc định (Tự động điền)
-                  </p>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                        Khách hàng thường xuyên
-                      </label>
-                      <select
-                        name="lastCustomerName"
-                        value={formData.lastCustomerName || ''}
-                        onChange={handleChange}
-                        className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white"
-                      >
-                        <option value="">-- Chọn khách hàng --</option>
-                        {customers.map((c) => (
-                          <option key={c.id} value={c.name}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                        Loại hàng thường chở
-                      </label>
-                      <select
-                        name="lastProductName"
-                        value={formData.lastProductName || ''}
-                        onChange={handleChange}
-                        className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white"
-                      >
-                        <option value="">-- Chọn hàng hoá --</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.name}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                        Tài xế mặc định
-                      </label>
-                      <input
-                        name="lastDriverName"
-                        value={formData.lastDriverName || ''}
-                        onChange={handleChange}
-                        placeholder="Tên tài xế"
-                        className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
           </div>
           <div className="p-4 border-t flex justify-end space-x-3 bg-slate-50 rounded-b-lg">
             <button
@@ -219,7 +131,7 @@ const DataFormModal: React.FC<{
 };
 
 export const DataManagementScreen: React.FC<DataManagementScreenProps> = (props) => {
-  const [activeTab, setActiveTab] = useState<EntityType>('vehicle'); // Default to Vehicle tab for quick access
+  const [activeTab, setActiveTab] = useState<EntityType>('customer');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Entity | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -238,12 +150,10 @@ export const DataManagementScreen: React.FC<DataManagementScreenProps> = (props)
     if (editingItem) {
       // Update
       if (activeTab === 'customer') props.onUpdateCustomer(data);
-      if (activeTab === 'vehicle') props.onUpdateVehicle(data);
       if (activeTab === 'product') props.onUpdateProduct(data);
     } else {
       // Add
       if (activeTab === 'customer') props.onAddCustomer(data);
-      if (activeTab === 'vehicle') props.onAddVehicle(data);
       if (activeTab === 'product') props.onAddProduct(data);
     }
     handleCloseModal();
@@ -252,18 +162,11 @@ export const DataManagementScreen: React.FC<DataManagementScreenProps> = (props)
   const handleDelete = (id: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xoá mục này không?')) {
       if (activeTab === 'customer') props.onDeleteCustomer(id);
-      if (activeTab === 'vehicle') props.onDeleteVehicle(id);
       if (activeTab === 'product') props.onDeleteProduct(id);
     }
   };
 
   const tabConfig = {
-    vehicle: {
-      title: 'Xe & Mẫu cân',
-      data: props.vehicles,
-      icon: <TruckIcon className="w-5 h-5" />,
-      mainField: 'plateNumber',
-    },
     customer: {
       title: 'Khách hàng',
       data: props.customers,
@@ -357,7 +260,7 @@ export const DataManagementScreen: React.FC<DataManagementScreenProps> = (props)
               >
                 <div className="flex items-start sm:items-center">
                   <div
-                    className={`p-3 rounded-full mr-4 shrink-0 ${activeTab === 'vehicle' ? 'bg-amber-100 text-amber-600' : 'bg-blue-50 text-brand-primary'}`}
+                    className="p-3 rounded-full mr-4 shrink-0 bg-blue-50 text-brand-primary"
                   >
                     {currentTab.icon}
                   </div>
@@ -365,39 +268,6 @@ export const DataManagementScreen: React.FC<DataManagementScreenProps> = (props)
                     <span className="font-bold text-slate-800 text-base block">
                       {item[currentTab.mainField]}
                     </span>
-
-                    {/* Show extra details for Vehicles */}
-                    {activeTab === 'vehicle' && (
-                      <div className="text-xs text-slate-500 mt-1 space-y-0.5">
-                        {item.lastCustomerName && (
-                          <p>
-                            KH:{' '}
-                            <span className="font-medium text-slate-700">
-                              {item.lastCustomerName}
-                            </span>
-                          </p>
-                        )}
-                        {item.lastProductName && (
-                          <p>
-                            Hàng:{' '}
-                            <span className="font-medium text-slate-700">
-                              {item.lastProductName}
-                            </span>
-                          </p>
-                        )}
-                        {item.lastDriverName && (
-                          <p>
-                            Tài xế:{' '}
-                            <span className="font-medium text-slate-700">
-                              {item.lastDriverName}
-                            </span>
-                          </p>
-                        )}
-                        {!item.lastCustomerName && !item.lastProductName && (
-                          <span className="italic text-slate-400">Chưa có thông tin mẫu</span>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
                 <div className="flex items-center justify-end space-x-2 pt-2 sm:pt-0 border-t sm:border-0 border-slate-50">
