@@ -121,3 +121,5 @@ export const DigitalDisplay: React.FC<{ weight: number; status: string; isMobile
   }
 );
 
+
+
